@@ -1,13 +1,14 @@
 
 import { Midi, Track } from '@tonejs/midi';
 import { ConversionOptions, TransformationStats } from '../../../types';
-import { getQuantizationTickValue, pruneOverlaps } from '../midiTransform';
+import { getQuantizationTickValue, quantizeNotes } from '../midiTransform';
 import { getFormattedTime } from '../midiHarmony';
 
 export function getQuantizationWarning(midi: Midi, selectedTrackIds: Set<number>, options: ConversionOptions): { message: string, details: string[] } | null {
-    if ((options.quantizationValue === 'off' && !options.pruneOverlaps) || selectedTrackIds.size === 0) return null;
     const ppq = midi.header.ppq;
-    const quantizationTicks = getQuantizationTickValue(options.quantizationValue, ppq);
+    const shadowEnabled = options.primaryRhythm.enabled;
+    if ((!shadowEnabled && options.quantizationValue === 'off' && !options.pruneOverlaps) || selectedTrackIds.size === 0) return null;
+    const quantizationTicks = shadowEnabled ? getQuantizationTickValue(options.primaryRhythm.minNoteValue, ppq) : getQuantizationTickValue(options.quantizationValue, ppq);
     
     let clampedNotesCount = 0;
     let microNotesCount = 0;
@@ -47,132 +48,96 @@ export function getQuantizationWarning(midi: Midi, selectedTrackIds: Set<number>
 }
 
 export function calculateTransformationStats(track: Track, options: ConversionOptions, ppq: number): TransformationStats {
-    let processedNotes = track.notes.map(n => ({ ...n }));
-    const initialCount = processedNotes.length;
+    let workingNotes = track.notes.map((n, idx) => ({ ...n, _analysisId: idx } as any));
+    const initialCount = workingNotes.length;
+
     let removedByDuration = 0;
-    let removedByOverlap = 0;
-    let truncatedByOverlap = 0;
-    let quantizedCount = 0;
-    let durationAdjustedCount = 0;
-    let notesExtended = 0;
-    let notesShortened = 0;
-    let totalShift = 0;
-    
+
     let timeScale = options.noteTimeScale;
     if (options.tempoChangeMode === 'time' && options.originalTempo > 0 && options.tempo > 0) {
         timeScale *= options.originalTempo / options.tempo;
     }
 
-    // 1. Filter Short (Unscaled)
     if (options.removeShortNotesThreshold > 0) {
-        const before = processedNotes.length;
-        processedNotes = processedNotes.filter(n => n.durationTicks >= options.removeShortNotesThreshold);
-        removedByDuration = before - processedNotes.length;
-    }
-    
-    const qTicks = getQuantizationTickValue(options.quantizationValue, ppq);
-    let minTicks = 0;
-    if (options.quantizeDurationMin !== 'off') {
-        minTicks = getQuantizationTickValue(options.quantizeDurationMin, ppq);
-    } else if (qTicks > 0) {
-        minTicks = qTicks;
+        const before = workingNotes.length;
+        workingNotes = workingNotes.filter(n => n.durationTicks >= options.removeShortNotesThreshold);
+        removedByDuration = before - workingNotes.length;
     }
 
-    // Alignment Metrics Helper
-    const measureGrid = qTicks > 0 ? qTicks : ppq / 4;
+    const inputById = new Map<number, { ticks: number; durationTicks: number }>();
+    workingNotes.forEach(n => inputById.set((n as any)._analysisId, { ticks: n.ticks, durationTicks: n.durationTicks }));
+
+    const primaryTicks = options.primaryRhythm.enabled ? getQuantizationTickValue(options.primaryRhythm.minNoteValue, ppq) : 0;
+    const legacyTicks = getQuantizationTickValue(options.quantizationValue, ppq);
+    const measureGrid = primaryTicks > 0 ? primaryTicks : (legacyTicks > 0 ? legacyTicks : ppq / 4);
+
     const calculateAlignment = (notes: any[]) => {
         if (notes.length === 0) return 0;
         let onGrid = 0;
         notes.forEach(n => {
-            const dist = n.ticks % measureGrid;
+            const dist = ((n.ticks % measureGrid) + measureGrid) % measureGrid;
             const deviation = Math.min(dist, measureGrid - dist);
-            if (deviation < measureGrid * 0.05) onGrid++; // 5% tolerance
+            if (deviation < measureGrid * 0.05) onGrid++;
         });
         return onGrid / notes.length;
     };
 
-    // Calculate Input Alignment (Original)
-    const inputGridAlignment = calculateAlignment(processedNotes);
+    const inputGridAlignment = calculateAlignment(workingNotes);
 
-    // 2. Quantize (Unscaled)
-    if (qTicks > 0 || minTicks > 0) {
-        processedNotes.forEach(n => {
-            const originalTick = n.ticks;
-            const originalDuration = n.durationTicks;
-            let targetTick = originalTick;
-            
-            // Quantize Start
-            if (qTicks > 0) {
-                targetTick = Math.round(originalTick / qTicks) * qTicks;
-                const diff = Math.abs(targetTick - originalTick);
-                if (diff > 0) {
-                    quantizedCount++;
-                    totalShift += diff;
-                }
-                n.ticks = targetTick; 
-            }
-            
-            // Quantize/Extend Duration
-            let targetDuration = originalDuration;
-            if (qTicks > 0) targetDuration = Math.round(targetDuration / qTicks) * qTicks;
-            if (minTicks > 0) targetDuration = Math.max(targetDuration, minTicks);
-            if (targetDuration === 0 && qTicks > 0) targetDuration = qTicks;
+    const quantizedNotes = quantizeNotes(workingNotes.map(n => ({ ...n })), options, ppq).map(n => ({ ...n }));
 
-            if (targetDuration !== originalDuration) {
-                durationAdjustedCount++;
-                if (targetDuration > originalDuration) notesExtended++;
-                else notesShortened++;
-            }
-            n.durationTicks = targetDuration;
-        });
-    }
+    let quantizedCount = 0;
+    let durationAdjustedCount = 0;
+    let notesExtended = 0;
+    let notesShortened = 0;
+    let totalShift = 0;
 
-    // 3. Prune Overlaps (Unscaled)
-    if (options.pruneOverlaps) {
-        const multipliers = [0, 0.03125, 0.0416, 0.0625, 0.0833, 0.125, 0.1666, 0.25, 0.3333, 0.5, 1.0];
-        const threshold = Math.round(ppq * multipliers[options.pruneThresholdIndex]);
-        const countBefore = processedNotes.length;
-        processedNotes.forEach((n, i) => (n as any)._analysisId = i);
-        const durationMap = new Map<number, number>();
-        processedNotes.forEach(n => durationMap.set((n as any)._analysisId, n.durationTicks));
-        const pruned = pruneOverlaps(processedNotes, threshold);
-        removedByOverlap = countBefore - pruned.length;
-        pruned.forEach(n => {
-            const id = (n as any)._analysisId;
-            const originalDur = durationMap.get(id);
-            if (originalDur !== undefined && n.durationTicks < originalDur) {
-                truncatedByOverlap++;
-            }
-        });
-        processedNotes = pruned;
-    }
+    const remainingIds = new Set<number>();
+    quantizedNotes.forEach((n: any) => {
+        const id = (n as any)._analysisId;
+        if (id === undefined) return;
+        remainingIds.add(id);
+        const before = inputById.get(id);
+        if (!before) return;
 
-    // 4. Scale (For Output Alignment calculation)
-    // We scale here to calculate the final alignment score on the resulting timeline
+        const tickShift = Math.abs(n.ticks - before.ticks);
+        if (tickShift > 0) {
+            quantizedCount++;
+            totalShift += tickShift;
+        }
+
+        if (n.durationTicks !== before.durationTicks) {
+            durationAdjustedCount++;
+            if (n.durationTicks > before.durationTicks) notesExtended++;
+            if (n.durationTicks < before.durationTicks) notesShortened++;
+        }
+    });
+
+    const notesRemovedOverlap = Math.max(0, inputById.size - remainingIds.size);
+    const notesTruncatedOverlap = options.pruneOverlaps ? notesShortened : 0;
+
+    let outputNotes = quantizedNotes;
     if (timeScale !== 1) {
-        processedNotes = processedNotes.map(n => ({
+        outputNotes = outputNotes.map(n => ({
             ...n,
             ticks: Math.round(n.ticks * timeScale),
             durationTicks: Math.round(n.durationTicks * timeScale)
         }));
     }
 
-    // Calculate Output Alignment (on Scaled result)
-    // Note: if timeScale is non-integer, alignment score might drop even if "perfectly" scaled,
-    // but this reflects reality if the grid doesn't scale with it.
-    const outputGridAlignment = calculateAlignment(processedNotes);
+    const outputGridAlignment = calculateAlignment(outputNotes);
 
     return {
         totalNotesInput: initialCount,
-        totalNotesOutput: processedNotes.length,
+        totalNotesOutput: outputNotes.length,
         notesRemovedDuration: removedByDuration,
         notesQuantized: quantizedCount,
         notesDurationChanged: durationAdjustedCount,
         notesExtended,
         notesShortened,
         avgShiftTicks: quantizedCount > 0 ? totalShift / quantizedCount : 0,
-        notesRemovedOverlap: removedByOverlap,
-        notesTruncatedOverlap: truncatedByOverlap,
+        notesRemovedOverlap,
+        notesTruncatedOverlap,
         inputGridAlignment,
         outputGridAlignment
     };
