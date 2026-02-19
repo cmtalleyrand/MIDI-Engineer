@@ -4,6 +4,13 @@ Purpose: persistent high-detail project memory for future AI sessions and mainta
 
 ## [Unreleased]
 
+
+### Fixed - GitHub Pages deployment pathing and entrypoint cleanup
+- Added an explicit Vite `base` configuration for production GitHub Pages deployments (`/MIDI-Engineer/`) with `VITE_BASE_PATH` override support.
+- Simplified `index.html` to a single Vite module entry and removed non-Vite import map wiring that could conflict with bundled production output.
+- Removed stale `/index.css` reference that produced runtime/build warnings and could mask asset-loading issues during deployment verification.
+- Kept service worker registration using a location-resolved URL so registration remains origin-safe under project subpaths.
+
 ### Changed - Precision pass for ornament definitions and voice-cost semantics
 - Replaced high-level ornament taxonomy wording with deterministic, parameterized detection criteria.
 - Added explicit ornament detection parameters (`Tq`, `ornamentMaxSpanTicks`, `graceMaxDurTicks`, `attachGapTicks`, `neighborMaxSemitones`).
