@@ -1,74 +1,76 @@
+# MIDI Engineer
 
-# MIDI Track Combiner & Analyzer
+A powerful browser-based tool for processing, analyzing, and transforming MIDI files.
+It is aimed primarily at musicians (especially non-coders) who need precise control over quantization, voice handling, and notation export quality.
 
-A powerful web-based tool for processing, analyzing, and transforming MIDI files. This application allows musicians and developers to upload MIDI files, analyze their harmonic and rhythmic content, apply rigorous quantization and transformations, and export the results as new MIDI files or ABC notation.
+## Product Priorities
+
+1. **Notation-clean ABC export quality** (shadow-quantized by default).
+2. **Reliable advanced transformations** (voice splitting, inversion, modal remapping, etc.).
+3. **Transparency** (users should be able to inspect what changed and why).
 
 ## Key Features
 
-### 1. Track Management & Playback
-- **Upload & Parse:** Drag and drop support for `.mid` files using `@tonejs/midi`.
-- **Track Selection:** Choose specific tracks to process or analyze.
-- **Audio Preview:** Real-time preview of individual tracks using `Tone.js` polyphonic synths.
-- **Piano Roll:** Interactive visual inspection of track notes with zoom controls and voice coloring.
+### 1) Track Management & Playback
+- **Upload & Parse:** Drag-and-drop `.mid` ingestion using `@tonejs/midi`.
+- **Track Selection:** Choose specific tracks for processing and analysis.
+- **Audio Preview:** Real-time playback for selected material.
+- **Piano Roll:** Visual note inspection with zooming and voice coloring support.
 
-### 2. Analysis Engine
-Deep inspection of MIDI data to inform processing decisions.
-- **Rhythmic Integrity:** visualizes how "tight" the playing is against the grid and consistent the note durations are.
-- **Key & Mode Prediction:** Algorithms to detect the likely key (Major, Minor, Dorian, Phrygian, etc.) and even exotic modes based on pitch class histograms.
-- **Chord Detection:** Four distinct algorithms to identify harmonies:
-  - *Sustain:* Chords formed by overlapping held notes.
-  - *Attack:* Block chords struck simultaneously (with configurable tolerance).
-  - *Hybrid:* Intelligent detection for arpeggiated or polyphonic textures based on voice config.
-  - *Beat Synced:* Harmonies normalized to specific beat buckets (Harmonic Rhythm).
-- **Voice Leading:** Histograms of melodic intervals to analyze the smoothness of lines.
+### 2) Analysis Engine
+- **Rhythmic Integrity:** Inspect timing tightness and duration regularity.
+- **Key & Mode Prediction:** Major/minor/modal inference from pitch class behavior.
+- **Chord Detection:** Multiple strategies for harmonic interpretation:
+  - *Sustain* (overlap/held-note driven)
+  - *Attack* (simultaneous onset driven)
+  - *Hybrid* (mixed behavior for polyphonic/arpeggiated textures)
+  - *Beat-synced* (bucketed harmonic rhythm view)
+- **Voice Leading:** Interval/histogram analysis for melodic-line smoothness.
 
-### 3. Transformation Pipeline (The "Shadow Grid")
-The application uses a sophisticated 2-pass "Shadow Quantization" engine logic:
-- **Quantization:** Snap notes to standard (1/4, 1/8, 1/16) or tuplets grids (Triplets, Quintuplets).
-- **Duration Constraints:** Enforce minimum note lengths to clean up staccato performance or "ghost notes".
-- **Overlap Pruning:** Intelligently shorten notes to prevent monophonic overlap conflicts, essential for clean sheet music export.
-- **Time Scaling:** Change tempo or double/half-time the rhythm (Augmentation/Diminution).
-- **Inversion:** Retrograde (play backwards) support, including segmented inversion (e.g., reverse every measure).
-- **Modal Conversion:** Remap pitches from one scale/mode to another (e.g., C Major to C Minor).
+### 3) Transformation Pipeline
+- **Quantization & Rhythm Control:** Primary/secondary rhythm settings with configurable minimum note values.
+- **Duration Constraints:** Cleanup of micro-notes/short artifacts via filtering thresholds.
+- **Overlap Pruning:** Shortening/reconciling note overlaps for cleaner output.
+- **Time Transformations:** Tempo/time conversion and time scaling.
+- **Pitch Transformations:** Transposition, inversion, retrograde behaviors.
+- **Modal Conversion:** Pitch remapping from one scale/mode context to another.
 
-### 4. Voice Separation
-An algorithm to split polyphonic tracks (piano/guitar) into separate monophonic voices (SATB).
-- **Logic:** Uses density analysis to determine structural polyphony, then assigns notes to voices based on pitch-proximity pathfinding and vertical sorting.
-- **Configurable:** Adjust overlap tolerance and pitch bias (Horizontal smoothness vs Vertical strictness).
+### 4) Voice Separation
+- Split polyphonic content into structural voices with SATB-oriented intent.
+- Keep label output compact (e.g., `S1`, `A1`, `T1`, `B1`) with up to 8 lanes.
+- Supports analysis/visual use while preserving export-mode behavior rules.
 
-### 5. Export
-- **MIDI Download:** Get the processed file.
-- **ABC Notation:** Export to text-based sheet music format, preserving the calculated voice separation and quantization.
+### 5) Export
+- **MIDI export** for downstream production workflows.
+- **ABC export** for notation workflows.
 
-## Technical Architecture
+## Default Output Policy (Intent)
 
-### Core Tech Stack
-- **Framework:** React 18 (TypeScript)
-- **Styling:** Tailwind CSS
-- **Audio/MIDI:** `tone`, `@tonejs/midi`
-- **Build:** Standard ES Modules (no bundler config required for editing in this environment).
+- **ABC export defaults to shadow-quantized output**.
+- **MIDI export defaults to no quantization unless explicitly enabled**.
 
-### Directory Structure
-- `components/`: UI Components.
-  - `analysis/`: Visualization components (Reports, Charts).
-  - `settings/`: Configuration panels.
-  - `services/`: Core logic (non-UI).
-    - `midiCore.ts`: Parsing and Ornament detection.
-    - `midiTransform.ts`: Quantization and Time manipulation.
-    - `midiHarmony.ts`: Chord detection algorithms.
-    - `midiVoices.ts`: Polyphonic voice separation logic.
-    - `midiPipeline.ts`: The main processing chain connecting inputs to outputs.
-- `hooks/`: State management (`useMidiController`).
-- `types.ts`: Shared TypeScript interfaces.
+This split exists because notation readability and performance-preserving MIDI output are separate goals.
 
-## Usage Guide
+## Documentation Map
 
-1.  **Upload:** Drop a MIDI file onto the landing zone.
-2.  **Select:** Check the boxes for the tracks you want to include.
-3.  **Analyze (Optional):** Click the "Chart" icon on a track to view its key, rhythm, and chords. Use this to determine the best settings.
-4.  **Configure:**
-    - *Tempo & Time:* Set the target BPM or Time Signature.
-    - *Transform:* Transpose, Scale Time, or apply Inversion.
-    - *Voice Separation:* Configure how chords are split if "Separate Voices" is chosen.
-    - *Quantization:* Apply grid snapping. **Check the Quantization Warning** to see if you are destroying musical detail (micro-notes).
-5.  **Process:** Click "Download MIDI" to get the result, or "Export ABC" for sheet music.
+- `README.md`: release-facing product and usage summary.
+- `PROJECT_INTENT.md`: authoritative target behavior/specification.
+- `PROJECT_PLAN.md`: intentionally blank by default; populate only on explicit planning request.
+- `CHANGE_LOG.md`: high-detail change memory for future AI sessions.
+- `docs/ARCHITECTURE_CURRENT.md`: implementation-accurate architecture snapshot.
+
+## Development
+
+```bash
+npm install
+npm run dev
+npm run build
+npm run preview
+```
+
+## Release Documentation Rules
+
+- Update `README.md` per release.
+- Update `CHANGE_LOG.md` on every code/documentation change.
+- Update `PROJECT_INTENT.md` only on explicit intent revision.
+- Keep `PROJECT_PLAN.md` empty unless a planning request is active.

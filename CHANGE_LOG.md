@@ -1,12 +1,49 @@
-
 # Change Log
 
-## [Current] - Voice Logic Fix
-- **Logic:** Refined "Island Detection" in Phase 2 Voice Allocation.
-    - Previously, any note not connected to a pre-existing anchor was penalized as an "Island" (+1000 cost), often preventing valid phrases from entering a voice (e.g. a Bass line entering after a rest).
-    - **Fix:** The algorithm now "looks ahead" at other unassigned notes. If a note is followed by another note within 1 measure, it is classified as a "Phrase Start" (Cost +25) instead of an "Island". This allows voices to wake up naturally for phrases while still suppressing isolated blips.
+Purpose: persistent high-detail project memory for future AI sessions and maintainers.
 
-## [Previous] - Logic & UI Fixes
-- **Logic:** Removed "Sparse Anchor" strategy (Strategy B) from Phase 1 Voice Allocation. Phase 1 now *only* assigns notes that are part of a Max Density Block (Strict Rank). Partial polyphony is exclusively handled by Phase 2.
-- **UI:** Simplified Voice Inspector Header.
-- **Refinement:** Ensured Phase 2 Cost logs use 1 decimal place.
+## [Unreleased]
+
+### Changed - Precision pass for ornament definitions and voice-cost semantics
+- Replaced high-level ornament taxonomy wording with deterministic, parameterized detection criteria.
+- Added explicit ornament detection parameters (`Tq`, `ornamentMaxSpanTicks`, `graceMaxDurTicks`, `attachGapTicks`, `neighborMaxSemitones`).
+- Specified formal predicates for grace groups, mordents, turns, and trills (including sequence cardinality, span limits, and pitch constraints).
+- Refined `weight_register_center` wording to describe register-continuity behavior instead of vague lane-adherence wording.
+- Extended orphan-note trigger conditions to include forced voice-crossing scenarios.
+
+### Changed - Addressed follow-up review comments on precision and scope
+- Expanded `PROJECT_INTENT.md` ornament section with explicit taxonomy and deterministic detection criteria for grace groups, mordents, turns, and trills.
+- Added normative classifier output requirements for ornament detection (class, principal reference, members, bounds, confidence, ambiguity tags).
+- Added explicit orphan-note definition and policy in voice separation:
+  - orphan assignment trigger conditions,
+  - no path-dependency behavior,
+  - separate export lane/track requirement.
+- Expanded `README.md` feature coverage to restore richer analysis/transformation details while keeping documentation map and governance guidance.
+
+### Changed - PROJECT_INTENT.md expanded to fully detailed owner-specified contract
+- Replaced the reduced-detail intent wording with a stricter, implementation-grade specification matching inline review feedback.
+- Restored and clarified removed specificity in these areas:
+  - strict pipeline semantics and explicit section-anchor behavior
+  - detailed rhythm vocabulary and valid-duration construction rules
+  - explicit requirement that ornament detection can classify sub-MNV structures before final principal-note resolution
+  - fully specified Pass 2 contextual role (not passthrough) plus concrete conflict classes
+  - weighted Pass 2 solver principles and high-penalty thresholds for excessive onset/duration movement
+  - overlap handling detail including shortening longer overlap notes before merge fallback
+  - SATB voice-cost policy updates (removed near-crossing proximity default, added leap discontinuity behavior, short wake-up policy, chord/orphan penalties)
+  - mandatory dual debug surfaces (UI + downloadable machine-readable trace)
+- Preserved owner defaults:
+  - ABC shadow-quantized by default
+  - MIDI unquantized by default unless selected
+  - configurable section split threshold
+  - compact SATB-first labels capped at 8 lanes
+
+### Changed - Documentation governance retained
+- Kept governance rules aligned with owner direction:
+  - changelog updated each change
+  - project plan blank by default unless requested
+  - README release-updated
+  - intent updated only on explicit owner intent revision requests
+
+### Why this matters
+- The intent document now functions as a precise contract for implementation work rather than an abbreviated summary.
+- This reduces future drift and provides better continuity for AI-assisted iterations.
