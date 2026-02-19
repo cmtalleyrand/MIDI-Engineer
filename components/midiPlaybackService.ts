@@ -68,11 +68,8 @@ export function playTrack(processedMidi: Midi, onEnded: () => void): void {
   currentPart.start(0);
   Tone.Transport.start();
 
-  // Schedule the transport to stop after the part is done
-  const partDuration = track.notes.reduce((maxDuration, note) => {
-    const noteEnd = (note.time || 0) + (note.duration || 0);
-    return Math.max(maxDuration, noteEnd);
-  }, 0);
+  // Schedule the transport to stop after the last note completes
+  const partDuration = track.notes.reduce((maxEnd, note) => Math.max(maxEnd, note.time + note.duration), 0);
   Tone.Transport.scheduleOnce(() => {
     Tone.Transport.stop();
   }, `+${partDuration + 0.5}`); // Add a small buffer

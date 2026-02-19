@@ -146,6 +146,7 @@ export interface PianoRollTrackData {
         voiceIndex?: number;
         isOrnament?: boolean;
         explanation?: VoiceExplanation; // Debug info for voice allocation
+        shadowDecision?: RawNote['shadowDecision'];
     }[]; 
     name: string;
     ppq: number;
@@ -198,6 +199,35 @@ export interface RawNote {
     voiceIndex?: number;
     isOrnament?: boolean;
     explanation?: VoiceExplanation; // Debug info for voice allocation logic
+    shadowDecision?: {
+        confidence: 'Certain' | 'Weak_Primary' | 'Ambiguous';
+        pass1BestFamily: RhythmFamily;
+        selectedFamily: RhythmFamily;
+        selectedNoteValue: string;
+        selectedOnsetTicks: number;
+        selectedDurationTicks: number;
+        objectiveBreakdown: {
+            noteRetention: number;
+            ordering: number;
+            movement: number;
+            overlapAndBlip: number;
+            confidenceAwareEdit: number;
+            total: number;
+        };
+        conflictTypes: Array<'type1_unison_overlap' | 'type2_polyphony_blip' | 'type3_contextual_rhythm'>;
+        accommodationApplied?: {
+            shortenedFrom: number;
+            shortenedTo: number;
+            reason: string;
+        };
+        alternatives: Array<{
+            family: RhythmFamily;
+            noteValue: string;
+            onsetTicks: number;
+            durationTicks: number;
+            totalScore: number;
+        }>;
+    };
 }
 
 export interface TransformationStats {

@@ -75,6 +75,7 @@ const PianoRoll: React.FC<PianoRollProps> = ({ trackData }) => {
   // Zoom state: 1.0 is default (0.15px per tick)
   const [zoom, setZoom] = useState(1.0);
   const [showVoices, setShowVoices] = useState(false);
+  const [showQuantizerRationale, setShowQuantizerRationale] = useState(false);
   const [selectedNote, setSelectedNote] = useState<any | null>(null);
   
   // Calculate max voice count for labeling
@@ -194,6 +195,16 @@ const PianoRoll: React.FC<PianoRollProps> = ({ trackData }) => {
                     </div>
                     <span className="text-xs text-gray-400 uppercase font-bold tracking-wider">Show Voices</span>
                 </label>
+
+                {/* Show Quantizer Rationale Toggle */}
+                <label className="flex items-center cursor-pointer gap-2">
+                    <div className="relative">
+                        <input type="checkbox" className="sr-only" checked={showQuantizerRationale} onChange={(e) => setShowQuantizerRationale(e.target.checked)} />
+                        <div className={`block w-8 h-4 rounded-full transition-colors ${showQuantizerRationale ? 'bg-brand-primary' : 'bg-gray-600'}`}></div>
+                        <div className={`absolute left-1 top-0.5 bg-white w-3 h-3 rounded-full transition-transform ${showQuantizerRationale ? 'transform translate-x-4' : ''}`}></div>
+                    </div>
+                    <span className="text-xs text-gray-400 uppercase font-bold tracking-wider">Show Quantizer Logic</span>
+                </label>
             </div>
 
             <div className="text-xs text-gray-500">
@@ -269,6 +280,34 @@ const PianoRoll: React.FC<PianoRollProps> = ({ trackData }) => {
                        </div>
                    ) : (
                        <p className="text-gray-500 italic text-xs mt-2">No detailed explanation available (Logic was run before logging enabled or note is raw).</p>
+                   )}
+
+                   {!showQuantizerRationale && selectedNote.shadowDecision && (
+                       <p className="text-gray-500 italic text-xs mt-2">Shadow quantizer rationale is available. Enable "Show Quantizer Logic" to inspect per-note decisions.</p>
+                   )}
+                   {showQuantizerRationale && selectedNote.shadowDecision && (
+                       <div className="mt-3">
+                           <span className="text-xs text-gray-500 uppercase font-bold block mb-1">Shadow Quantizer Rationale</span>
+                           <div className="bg-gray-900 rounded p-2 text-xs font-mono border border-gray-700 space-y-1">
+                               <p><span className="text-gray-400">Confidence:</span> <span className="text-brand-primary">{selectedNote.shadowDecision.confidence}</span></p>
+                               <p><span className="text-gray-400">Family:</span> {selectedNote.shadowDecision.selectedFamily} ({selectedNote.shadowDecision.selectedNoteValue})</p>
+                               <p><span className="text-gray-400">Resolved:</span> onset {selectedNote.shadowDecision.selectedOnsetTicks}, duration {selectedNote.shadowDecision.selectedDurationTicks}</p>
+                               <p><span className="text-gray-400">Objective:</span> total {selectedNote.shadowDecision.objectiveBreakdown.total.toFixed(2)}</p>
+                               <div className="text-[10px] text-gray-400 pl-2">
+                                   <div>retention={selectedNote.shadowDecision.objectiveBreakdown.noteRetention.toFixed(2)}</div>
+                                   <div>ordering={selectedNote.shadowDecision.objectiveBreakdown.ordering.toFixed(2)}</div>
+                                   <div>movement={selectedNote.shadowDecision.objectiveBreakdown.movement.toFixed(2)}</div>
+                                   <div>overlap/blip={selectedNote.shadowDecision.objectiveBreakdown.overlapAndBlip.toFixed(2)}</div>
+                                   <div>confidence-edit={selectedNote.shadowDecision.objectiveBreakdown.confidenceAwareEdit.toFixed(2)}</div>
+                               </div>
+                               {selectedNote.shadowDecision.conflictTypes.length > 0 && (
+                                   <p className="text-yellow-400">Conflicts: {selectedNote.shadowDecision.conflictTypes.join(', ')}</p>
+                               )}
+                               {selectedNote.shadowDecision.accommodationApplied && (
+                                   <p className="text-green-400">Accommodation: {selectedNote.shadowDecision.accommodationApplied.shortenedFrom} → {selectedNote.shadowDecision.accommodationApplied.shortenedTo}</p>
+                               )}
+                           </div>
+                       </div>
                    )}
                </div>
            </div>

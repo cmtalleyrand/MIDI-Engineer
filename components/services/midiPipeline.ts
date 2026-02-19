@@ -238,12 +238,14 @@ export function getTransformedTrackDataForPianoRoll(originalMidi: Midi, trackId:
     const distribution = distributeToVoices(newTrack.notes, options);
     const noteVoiceMap = new Map<any, number>();
     const noteExplanationMap = new Map<any, any>();
+    const noteShadowDecisionMap = new Map<any, any>();
     
     // Map assigned voices
     distribution.voices.forEach((voiceNotes, voiceIdx) => { 
         voiceNotes.forEach(n => {
             noteVoiceMap.set(n, voiceIdx);
             noteExplanationMap.set(n, (n as any).explanation);
+            noteShadowDecisionMap.set(n, (n as any).shadowDecision);
         }); 
     });
     
@@ -251,6 +253,7 @@ export function getTransformedTrackDataForPianoRoll(originalMidi: Midi, trackId:
     distribution.orphans.forEach(n => {
         noteVoiceMap.set(n, -1);
         noteExplanationMap.set(n, (n as any).explanation);
+        noteShadowDecisionMap.set(n, (n as any).shadowDecision);
     });
     
     return {
@@ -262,7 +265,8 @@ export function getTransformedTrackDataForPianoRoll(originalMidi: Midi, trackId:
             name: n.name, 
             voiceIndex: noteVoiceMap.get(n), // Undefined if something went wrong, -1 if orphan, >=0 if voice
             isOrnament: (n as any).isOrnament,
-            explanation: noteExplanationMap.get(n)
+            explanation: noteExplanationMap.get(n),
+            shadowDecision: noteShadowDecisionMap.get(n)
         })),
         name: newTrack.name,
         ppq: newMidi.header.ppq,
