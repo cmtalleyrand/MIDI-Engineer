@@ -1,125 +1,133 @@
+const CACHE_VERSION = 'v5';
+const STATIC_CACHE = `midi-combiner-static-${CACHE_VERSION}`;
+const RUNTIME_CACHE = `midi-combiner-runtime-${CACHE_VERSION}`;
+const SHELL_CACHE = `midi-combiner-shell-${CACHE_VERSION}`;
 
-const CACHE_NAME = 'midi-combiner-v4';
-const URLS_TO_CACHE = [
-  './',
-  './index.html',
-  './index.tsx',
-  './App.tsx',
-  './types.ts',
-  './constants.ts',
-  './manifest.json',
-  './icon.svg',
-  './metadata.json',
-  // Hooks
-  './hooks/useMidiController.ts',
-  './hooks/useConversionSettings.ts',
-  // Components
-  './components/Header.tsx',
-  './components/InstallBanner.tsx',
-  './components/FileUpload.tsx',
-  './components/TrackList.tsx',
-  './components/TrackItem.tsx',
-  './components/Icons.tsx',
-  './components/Notification.tsx',
-  './components/Modal.tsx',
-  './components/PianoRoll.tsx',
-  './components/TrackAnalysis.tsx',
-  './components/ConversionSettings.tsx',
-  './components/ActionPanel.tsx',
-  './components/midiPlaybackService.ts',
-  // Settings Components
-  './components/settings/TempoTimeSettings.tsx',
-  './components/settings/TransformSettings.tsx',
-  './components/settings/VoiceSettings.tsx',
-  './components/settings/KeyModeSettings.tsx',
-  './components/settings/QuantizationSettings.tsx',
-  './components/settings/FilterSettings.tsx',
-  // Services
-  './components/services/midiService.ts',
-  './components/services/midiCore.ts',
-  './components/services/midiVoices.ts',
-  './components/services/midiHarmony.ts',
-  './components/services/midiTransform.ts',
-  './components/services/midiPipeline.ts',
-  './components/services/midiAbc.ts',
-  './components/services/midiAnalysis.ts',
-  './components/services/musicTheory.ts',
-  './components/services/abcUtils.ts',
-  './components/services/shadowQuantizer.ts',
-  // Analysis Components
-  './components/analysis/AnalysisShared.tsx',
-  './components/analysis/RhythmicIntegrityReport.tsx',
-  './components/analysis/KeyPredictionPanel.tsx',
-  './components/analysis/VoiceLeadingPanel.tsx',
-  './components/analysis/ChordProgressionPanel.tsx',
-  // Services Analysis
-  './components/services/analysis/transformationAnalysis.ts',
-  './components/services/analysis/keyPrediction.ts',
-  './components/services/analysis/rhythmAnalysis.ts',
-  './components/services/analysis/FilterSettings.tsx'
-];
+const SHELL_FILES = ['./', './index.html', './manifest.json', './icon.svg', './metadata.json'];
+
+const toAbsoluteUrl = (relativePath) => new URL(relativePath, self.registration.scope).toString();
+
+const isNavigationRequest = (request) =>
+  request.mode === 'navigate' || request.destination === 'document';
+
+const isCacheableStaticAsset = (request) => {
+  if (request.method !== 'GET') {
+    return false;
+  }
+
+  const destination = request.destination;
+  return ['script', 'style', 'image', 'font', 'audio', 'video', 'worker'].includes(destination);
+};
+
+const isSuccessfulResponse = (response) =>
+  response && response.status === 200 && (response.type === 'basic' || response.type === 'cors');
 
 self.addEventListener('install', (event) => {
-  // Force this new service worker to become the active one, bypassing the wait
-  self.skipWaiting(); 
+  self.skipWaiting();
+
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => {
-        return cache.addAll(URLS_TO_CACHE);
-      })
-  );
-});
+    (async () => {
+      const cache = await caches.open(SHELL_CACHE);
+      const results = await Promise.allSettled(
+        SHELL_FILES.map((path) => cache.add(toAbsoluteUrl(path)))
+      );
 
-self.addEventListener('fetch', (event) => {
-  event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        // Cache hit - return response
-        if (response) {
-          return response;
+      results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          console.warn('[SW] Failed to precache:', SHELL_FILES[index], result.reason);
         }
-
-        // Clone the request because it's a one-time use stream
-        const fetchRequest = event.request.clone();
-
-        return fetch(fetchRequest).then(
-          (response) => {
-            // Check if we received a valid response
-            if(!response || response.status !== 200 || response.type !== 'basic' && response.type !== 'cors') {
-              return response;
-            }
-
-            // Clone response to cache it
-            const responseToCache = response.clone();
-
-            caches.open(CACHE_NAME)
-              .then((cache) => {
-                // Cache dynamically loaded files (like external CDNs)
-                cache.put(event.request, responseToCache);
-              });
-
-            return response;
-          }
-        );
-      })
+      });
+    })()
   );
 });
 
 self.addEventListener('activate', (event) => {
-  const cacheWhitelist = [CACHE_NAME];
-  // Claim clients immediately so the user sees the update without reopening the tab
   event.waitUntil(
-    Promise.all([
-      caches.keys().then((cacheNames) => {
-        return Promise.all(
-          cacheNames.map((cacheName) => {
-            if (cacheWhitelist.indexOf(cacheName) === -1) {
-              return caches.delete(cacheName);
-            }
-          })
-        );
-      }),
-      self.clients.claim() 
-    ])
+    (async () => {
+      const keep = new Set([STATIC_CACHE, RUNTIME_CACHE, SHELL_CACHE]);
+      const cacheNames = await caches.keys();
+      await Promise.all(
+        cacheNames.map((cacheName) => {
+          if (!keep.has(cacheName)) {
+            return caches.delete(cacheName);
+          }
+          return Promise.resolve(false);
+        })
+      );
+
+      await self.clients.claim();
+    })()
+  );
+});
+
+self.addEventListener('fetch', (event) => {
+  const { request } = event;
+
+  if (request.method !== 'GET') {
+    return;
+  }
+
+  if (isNavigationRequest(request)) {
+    event.respondWith(
+      (async () => {
+        try {
+          const networkResponse = await fetch(request);
+          if (isSuccessfulResponse(networkResponse)) {
+            const cache = await caches.open(SHELL_CACHE);
+            cache.put(toAbsoluteUrl('./index.html'), networkResponse.clone());
+          }
+          return networkResponse;
+        } catch (error) {
+          const cache = await caches.open(SHELL_CACHE);
+          const fallback = await cache.match(toAbsoluteUrl('./index.html'));
+          if (fallback) {
+            return fallback;
+          }
+
+          return new Response('Offline and no cached app shell available.', {
+            status: 503,
+            statusText: 'Service Unavailable',
+            headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+          });
+        }
+      })()
+    );
+    return;
+  }
+
+  if (!isCacheableStaticAsset(request)) {
+    return;
+  }
+
+  event.respondWith(
+    (async () => {
+      const cache = await caches.open(RUNTIME_CACHE);
+      const cached = await cache.match(request);
+
+      const networkPromise = fetch(request)
+        .then((response) => {
+          if (isSuccessfulResponse(response)) {
+            cache.put(request, response.clone());
+          }
+          return response;
+        })
+        .catch(() => undefined);
+
+      if (cached) {
+        networkPromise.catch(() => undefined);
+        return cached;
+      }
+
+      const networkResponse = await networkPromise;
+      if (networkResponse) {
+        return networkResponse;
+      }
+
+      return new Response('Resource unavailable offline.', {
+        status: 504,
+        statusText: 'Gateway Timeout',
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+      });
+    })()
   );
 });

@@ -4,8 +4,7 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
-  const isProduction = mode === 'production';
-  const base = env.VITE_BASE_PATH || (isProduction ? '/MIDI-Engineer/' : '/');
+  const base = env.VITE_BASE_PATH || (mode === 'production' ? './' : '/');
 
   return {
     base,
