@@ -80,23 +80,29 @@ const renderBootstrapFallback = (error: unknown, source: string): void => {
 };
 
 let didRenderBootstrapFallback = false;
+let didCompleteBootstrap = false;
 
 const showBootstrapFallbackOnce = (error: unknown, source: string): void => {
-  if (didRenderBootstrapFallback) {
+  if (didRenderBootstrapFallback || didCompleteBootstrap) {
     return;
   }
 
   didRenderBootstrapFallback = true;
+  window.removeEventListener('error', handleBootstrapError);
+  window.removeEventListener('unhandledrejection', handleBootstrapRejection);
   renderBootstrapFallback(error, source);
 };
 
-window.addEventListener('error', (event) => {
+const handleBootstrapError = (event: ErrorEvent): void => {
   showBootstrapFallbackOnce(event.error ?? event.message, 'window.error');
-});
+};
 
-window.addEventListener('unhandledrejection', (event) => {
+const handleBootstrapRejection = (event: PromiseRejectionEvent): void => {
   showBootstrapFallbackOnce(event.reason, 'window.unhandledrejection');
-});
+};
+
+window.addEventListener('error', handleBootstrapError);
+window.addEventListener('unhandledrejection', handleBootstrapRejection);
 
 const root = ReactDOM.createRoot(rootElement);
 root.render(
@@ -106,3 +112,9 @@ root.render(
     </AppErrorBoundary>
   </React.StrictMode>
 );
+
+window.setTimeout(() => {
+  didCompleteBootstrap = true;
+  window.removeEventListener('error', handleBootstrapError);
+  window.removeEventListener('unhandledrejection', handleBootstrapRejection);
+}, 0);
