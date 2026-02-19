@@ -40,33 +40,34 @@
         },
       };
     </script>
+    <style>
+      #boot-fallback {
+        max-width: 48rem;
+        margin: 8vh auto;
+        padding: 1.25rem;
+        border: 1px solid #fca5a5;
+        border-radius: 0.75rem;
+        background: #fff1f2;
+        color: #111827;
+        font-family: system-ui, sans-serif;
+        line-height: 1.5;
+      }
+    </style>
   </head>
   <body class="bg-gray-darker text-gray-light">
     <div id="root"></div>
+    <section id="boot-fallback" role="status" aria-live="polite">
+      <h1 style="margin: 0 0 0.75rem; font-size: 1.5rem">Application failed to load</h1>
+      <p style="margin: 0.5rem 0">
+        The app bundle did not finish loading. This can happen after a deployment if your browser cached stale files.
+      </p>
+      <ol style="margin: 0.75rem 0 0; padding-left: 1.1rem">
+        <li>Hard refresh this page (Ctrl/Cmd + Shift + R).</li>
+        <li>Close and reopen the tab.</li>
+        <li>If needed, clear this site's cached data and reload.</li>
+      </ol>
+      <p style="margin-top: 0.75rem; font-size: 0.9rem">If the app starts normally, this message disappears automatically.</p>
+    </section>
     <script type="module" src="/index.tsx"></script>
-    <script type="module">
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', async function () {
-          try {
-            const swUrl = new URL('sw.js', import.meta.env.BASE_URL).href;
-            const registration = await navigator.serviceWorker.register(swUrl);
-            await registration.update();
-
-            let hasRefreshedForNewWorker = false;
-            navigator.serviceWorker.addEventListener('controllerchange', function () {
-              if (hasRefreshedForNewWorker) {
-                return;
-              }
-              hasRefreshedForNewWorker = true;
-              window.location.reload();
-            });
-
-            console.log('ServiceWorker registration successful with scope: ', registration.scope);
-          } catch (err) {
-            console.warn('ServiceWorker registration warning (PWA offline mode may be unavailable): ', err);
-          }
-        });
-      }
-    </script>
   </body>
 </html>

@@ -15,6 +15,12 @@ if (!rootElement) {
   throw new Error('Could not find root element to mount to');
 }
 
+
+const bootstrapFallbackElement = document.getElementById('boot-fallback');
+if (bootstrapFallbackElement) {
+  bootstrapFallbackElement.remove();
+}
+
 const renderBootstrapFallback = (error: unknown, source: string): void => {
   const details = createErrorDetails(error, source, 'Unhandled bootstrap exception');
   const shouldShowClearCacheButton = canClearOfflineCache();
