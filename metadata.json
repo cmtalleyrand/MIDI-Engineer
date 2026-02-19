@@ -1,0 +1,5 @@
+{
+  "name": "MIDI Track Combiner & Chord Detector v5 (PWA)",
+  "description": "An installable Progressive Web App for uploading MIDI files, analyzing their tracks, and combining selected tracks into a new, downloadable MIDI file.",
+  "requestFramePermissions": []
+}
