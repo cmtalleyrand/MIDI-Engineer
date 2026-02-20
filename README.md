@@ -75,6 +75,12 @@ This project must be deployed from the **built `dist/` artifact**, not directly 
 - The repository includes `.github/workflows/deploy-pages.yml` to build with Vite and publish `dist/` using GitHub Pages Actions.
 - In GitHub repository settings, set **Pages → Build and deployment → Source = GitHub Actions**.
 
+**⚠️ CRITICAL: Base Path Configuration**
+- This app is deployed to `https://cmtalleyrand.github.io/MIDI-Engineer/` (subdirectory deployment)
+- The `vite.config.ts` must set `base: '/MIDI-Engineer/'` for production builds
+- Using relative paths (e.g., `./`) will break module loading and cause startup failures
+- If deploying to a different URL, update the base path in `vite.config.ts` accordingly
+
 Deploying source `index.html` directly will request `/index.tsx` in the browser, which cannot run in production and leads to a blank/fallback screen.
 
 ## Release Documentation Rules
