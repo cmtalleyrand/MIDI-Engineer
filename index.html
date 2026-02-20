@@ -59,15 +59,63 @@
     <section id="boot-fallback" role="status" aria-live="polite">
       <h1 style="margin: 0 0 0.75rem; font-size: 1.5rem">Application failed to load</h1>
       <p style="margin: 0.5rem 0">
-        The app bundle did not finish loading. This can happen after a deployment if your browser cached stale files.
+        The app bundle did not finish loading. Diagnostics below report the exact startup failure seen in this browser.
       </p>
       <ol style="margin: 0.75rem 0 0; padding-left: 1.1rem">
-        <li>Hard refresh this page (Ctrl/Cmd + Shift + R).</li>
-        <li>Close and reopen the tab.</li>
-        <li>If needed, clear this site's cached data and reload.</li>
+        <li>Check the diagnostics below for the failing URL and error type.</li>
+        <li>Reload this page once after the deployment completes.</li>
+        <li>If this persists, share the diagnostics text with maintainers.</li>
       </ol>
+      <p
+        id="boot-diagnostics"
+        style="margin-top: 0.75rem; font-size: 0.9rem; white-space: pre-wrap; border: 1px solid #fecaca; border-radius: 0.5rem; padding: 0.6rem; background: #fff"
+      >
+        Collecting startup diagnostics…
+      </p>
       <p style="margin-top: 0.75rem; font-size: 0.9rem">If the app starts normally, this message disappears automatically.</p>
     </section>
-    <script type="module" src="/index.tsx"></script>
+    <script>
+      (() => {
+        const diagnosticsEl = document.getElementById('boot-diagnostics');
+        const moduleSrc = './index.tsx';
+
+        const setDiagnostics = (text) => {
+          if (diagnosticsEl) diagnosticsEl.textContent = text;
+        };
+
+        window.__midiEntryLoadFailed = async () => {
+          const attemptedUrl = new URL(moduleSrc, window.location.origin).href;
+          let status = 'unknown';
+
+          try {
+            const response = await fetch(attemptedUrl, { method: 'GET', cache: 'no-store' });
+            status = String(response.status);
+          } catch (error) {
+            status = `fetch failed (${String(error)})`;
+          }
+
+          setDiagnostics(
+            `Entry module failed to load.\n` +
+              `Attempted URL: ${attemptedUrl}\n` +
+              `HTTP status: ${status}\n` +
+              `Page URL: ${window.location.href}\n` +
+              `Likely cause: deployment is serving source index.html instead of built dist/index.html.`
+          );
+        };
+
+        setTimeout(() => {
+          if (!document.getElementById('boot-fallback')) {
+            return;
+          }
+
+          setDiagnostics(
+            `Startup did not complete.\n` +
+              `Attempted entry module: ${new URL(moduleSrc, window.location.origin).href}\n` +
+              `Page URL: ${window.location.href}`
+          );
+        }, 2000);
+      })();
+    </script>
+    <script type="module" src="./index.tsx" onerror="window.__midiEntryLoadFailed()"></script>
   </body>
 </html>
