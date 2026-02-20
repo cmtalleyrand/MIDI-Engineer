@@ -1,6 +1,7 @@
 
 import { Midi } from '@tonejs/midi';
 import { TrackInfo, MidiEventCounts } from '../../types';
+import { detectOrnamentHypotheses, getDefaultOrnamentDetectionParams, OrnamentDetectionParams, selectOrnamentHypotheses } from './ornamentDetector';
 
 /**
  * Analyzes a parsed MIDI object to count different types of events.
@@ -22,107 +23,51 @@ export function analyzeMidiEvents(midi: Midi): MidiEventCounts {
     return counts;
 }
 
-export function detectAndTagOrnaments(notes: any[], ppq: number): any[] {
-    const sorted = [...notes].sort((a, b) => a.ticks - b.ticks);
-    const taggedNotes: any[] = [];
-    
-    const EIGHTH_TICKS = ppq / 2;
-    const TRIPLET_EIGHTH_TICKS = (ppq * 2) / 3 / 2;
-    const MAX_GAP = ppq / 16; 
+export function detectAndTagOrnaments(notes: any[], ppq: number, overrides: Partial<OrnamentDetectionParams> = {}): any[] {
+    const sorted = [...notes].sort((a, b) => (a.ticks - b.ticks) || (a.midi - b.midi));
+    const params: OrnamentDetectionParams = { ...getDefaultOrnamentDetectionParams(ppq), ...overrides };
+    const hypotheses = detectOrnamentHypotheses(sorted, params);
+    const selected = selectOrnamentHypotheses(hypotheses);
 
-    let i = 0;
-    while (i < sorted.length) {
-        const chain: any[] = [];
-        let j = i;
-        
-        while (j < sorted.length) {
-            const n = sorted[j];
-            // Basic candidate check: Must be shorter than 8th note triplet to be part of rapid ornament
-            if (n.durationTicks < TRIPLET_EIGHTH_TICKS) {
-                if (chain.length > 0) {
-                    const prev = chain[chain.length - 1];
-                    if (n.ticks - (prev.ticks + prev.durationTicks) > MAX_GAP) break; 
-                }
-                chain.push(n);
-                j++;
-            } else {
-                break;
-            }
-        }
-        
-        if (chain.length > 0 && j < sorted.length) {
-            const principal = sorted[j];
-            const lastOrnament = chain[chain.length - 1];
-            
-            if (principal.ticks - (lastOrnament.ticks + lastOrnament.durationTicks) <= MAX_GAP) {
-                let isOrnamentGroup = false;
-                const P = principal.midi;
+    const noteById = new Map<string, any>();
+    sorted.forEach((n, index) => {
+        const id = n.id ?? `n_${n.ticks}_${n.midi}_${index}`;
+        n.id = id;
+        noteById.set(id, n);
+    });
 
-                // 1. TRILL (Alternating neighbors, count > 3)
-                if (chain.length >= 3) {
-                    let alternating = true;
-                    const neighborPitch = chain[0].midi;
-                    if (Math.abs(neighborPitch - P) <= 2 && neighborPitch !== P) {
-                         for (let k = 0; k < chain.length; k++) {
-                             const target = (k % 2 === 0) ? neighborPitch : P;
-                             if (chain[k].midi !== target) {
-                                 alternating = false;
-                                 break;
-                             }
-                         }
-                         if (alternating) isOrnamentGroup = true;
-                    }
-                }
+    selected.forEach(h => {
+        const principal = noteById.get(h.principalNoteRef);
+        if (!principal) return;
+        principal._hasOrnaments = true;
+        principal._ornamentClass = h.class;
+        principal._ornamentHypotheses = hypotheses.filter(c => c.principalNoteRef === h.principalNoteRef);
 
-                // 2. TURN (4 notes)
-                if (!isOrnamentGroup && chain.length === 3) {
-                    const [n1, n2, n3] = chain;
-                    const isStandard = (n1.midi > P && n2.midi === P && n3.midi < P);
-                    const isInverted = (n1.midi < P && n2.midi === P && n3.midi > P);
-                    if ((isStandard || isInverted) && Math.abs(n1.midi - P) <= 2 && Math.abs(n3.midi - P) <= 2) {
-                        isOrnamentGroup = true;
-                    }
-                }
+        h.memberNoteIds.forEach(id => {
+            const note = noteById.get(id);
+            if (!note) return;
+            note.isOrnament = true;
+            note._principalMidi = principal.midi;
+            note._principalTick = principal.ticks;
+            note._ornamentClass = h.class;
+            note._ornamentTimingBounds = h.timingBounds;
+            note._ornamentConfidence = h.confidence;
+            note._ornamentAmbiguityTags = h.ambiguityTags;
+            note._ornamentHypotheses = hypotheses.filter(c => c.memberNoteIds.includes(id));
+        });
+    });
 
-                // 3. MORDENT (2 notes + Principal = 3 total)
-                if (!isOrnamentGroup && chain.length === 2) {
-                    const [n1, n2] = chain;
-                    if (n1.midi === P && Math.abs(n2.midi - P) <= 2 && n2.midi !== P) {
-                        isOrnamentGroup = true;
-                    }
-                }
-
-                // 4. GRACE NOTE (1 note)
-                if (!isOrnamentGroup && chain.length === 1) {
-                    const n1 = chain[0];
-                    if (Math.abs(n1.midi - P) <= 2 && n1.durationTicks <= principal.durationTicks / 4) {
-                        isOrnamentGroup = true;
-                    }
-                }
-                
-                if (isOrnamentGroup) {
-                     const groupHeadTick = chain[0].ticks;
-                     chain.forEach(n => {
-                         (n as any).isOrnament = true;
-                         (n as any)._principalMidi = P;
-                         (n as any)._principalTick = principal.ticks;
-                     });
-                     (principal as any)._hasOrnaments = true;
-                     taggedNotes.push(...chain);
-                     taggedNotes.push(principal);
-                     i = j + 1;
-                     continue;
-                }
-            }
-        }
-        
-        taggedNotes.push(sorted[i]);
-        i++;
-    }
-    
-    return taggedNotes.sort((a,b) => a.ticks - b.ticks);
+    return sorted;
 }
 
+// TODO(pipeline-wiring): detectAndTagOrnaments currently runs only during file parse for
+// display purposes (ornamentCount on TrackInfo). Per PROJECT_INTENT §1, ornament detection
+// must also run pre-quantization inside the export/transform pipeline so that ornament-tagged
+// notes can temporarily bypass MNV rules (§2.4) and influence quantization resolution.
+// When wiring: pass the active rhythm family's MNV ticks as the second arg to
+// getDefaultOrnamentDetectionParams(ppq, familyMNVticks) so graceMaxDurTicks is correctly
+// bounded. Also respect the ConversionOptions.detectOrnaments boolean toggle.
+// Tracked: hook detectAndTagOrnaments into copyAndTransformTrackEvents in midiPipeline.ts.
 export async function parseMidiFromFile(file: File): Promise<{ midi: Midi; tracks: TrackInfo[]; eventCounts: MidiEventCounts }> {
   const arrayBuffer = await file.arrayBuffer();
   const midi = new Midi(arrayBuffer);
