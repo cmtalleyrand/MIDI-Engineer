@@ -83,3 +83,11 @@ Deploying source `index.html` directly will request `/index.tsx` in the browser,
 - Update `CHANGE_LOG.md` on every code/documentation change.
 - Update `PROJECT_INTENT.md` only on explicit intent revision.
 - Keep `PROJECT_PLAN.md` empty unless a planning request is active.
+
+## GitHub Pages deployment
+
+This app must be deployed from the built `dist/` output (not from repository root source files).
+The `index.html` in repo root references `/index.tsx`, which only works when served by Vite in dev mode.
+GitHub Pages should therefore publish the workflow artifact produced by `npm run build`.
+
+The included workflow `.github/workflows/deploy-pages.yml` builds with Vite and deploys `dist/` on pushes to `main`.
