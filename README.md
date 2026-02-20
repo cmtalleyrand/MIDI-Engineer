@@ -68,6 +68,15 @@ npm run build
 npm run preview
 ```
 
+## GitHub Pages Deployment
+
+This project must be deployed from the **built `dist/` artifact**, not directly from repository source files.
+
+- The repository includes `.github/workflows/deploy-pages.yml` to build with Vite and publish `dist/` using GitHub Pages Actions.
+- In GitHub repository settings, set **Pages → Build and deployment → Source = GitHub Actions**.
+
+Deploying source `index.html` directly will request `/index.tsx` in the browser, which cannot run in production and leads to a blank/fallback screen.
+
 ## Release Documentation Rules
 
 - Update `README.md` per release.

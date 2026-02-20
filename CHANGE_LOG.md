@@ -4,6 +4,11 @@ Purpose: persistent high-detail project memory for future AI sessions and mainta
 
 ## [Unreleased]
 
+### Fixed - Deploy built artifact to Pages instead of source tree
+- Added GitHub Actions workflow `.github/workflows/deploy-pages.yml` that installs dependencies, runs `npm run build`, uploads `dist/`, and deploys via `actions/deploy-pages`.
+- Documented Pages deployment requirement in `README.md`: set Pages source to **GitHub Actions** so the built Vite output is served.
+- This addresses production black-screen behavior where live Pages served source `index.html` and attempted to load `/index.tsx` (404), leaving only the bootstrap fallback visible.
+
 
 ### Fixed - GitHub Pages deployment pathing and entrypoint cleanup
 - Added an explicit Vite `base` configuration for production GitHub Pages deployments (`/MIDI-Engineer/`) with `VITE_BASE_PATH` override support.
