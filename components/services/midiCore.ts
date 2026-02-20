@@ -60,6 +60,14 @@ export function detectAndTagOrnaments(notes: any[], ppq: number, overrides: Part
     return sorted;
 }
 
+// TODO(pipeline-wiring): detectAndTagOrnaments currently runs only during file parse for
+// display purposes (ornamentCount on TrackInfo). Per PROJECT_INTENT §1, ornament detection
+// must also run pre-quantization inside the export/transform pipeline so that ornament-tagged
+// notes can temporarily bypass MNV rules (§2.4) and influence quantization resolution.
+// When wiring: pass the active rhythm family's MNV ticks as the second arg to
+// getDefaultOrnamentDetectionParams(ppq, familyMNVticks) so graceMaxDurTicks is correctly
+// bounded. Also respect the ConversionOptions.detectOrnaments boolean toggle.
+// Tracked: hook detectAndTagOrnaments into copyAndTransformTrackEvents in midiPipeline.ts.
 export async function parseMidiFromFile(file: File): Promise<{ midi: Midi; tracks: TrackInfo[]; eventCounts: MidiEventCounts }> {
   const arrayBuffer = await file.arrayBuffer();
   const midi = new Midi(arrayBuffer);

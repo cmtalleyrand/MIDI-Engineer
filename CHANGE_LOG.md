@@ -4,6 +4,43 @@ Purpose: persistent high-detail project memory for future AI sessions and mainta
 
 ## [Unreleased]
 
+### Fixed - Ornament detector correctness and spec alignment
+
+- **Turn span bug**: span was computed as `getEnd(e) - a.ticks`, including the sustained
+  principal note's full duration, which caused `span > ornamentMaxSpanTicks` to reject nearly
+  all turns silently. Fixed to `e.ticks - a.ticks` (ornamental note group only).
+
+- **Trill max span removed**: trills can be arbitrarily long — the pattern is unambiguously
+  recognisable by strict pitch alternation alone. Removed the `span <= 2 * Tq` guard.
+  The greedy selector naturally prefers the longest window because confidence scales with
+  note count (`0.7 + (len-4) * 0.04`).
+
+- **`familyMNVticks` added to `OrnamentDetectionParams`**: `getDefaultOrnamentDetectionParams`
+  now accepts an optional `familyMNVticks` argument (defaults to `Tq/4` = 1/16th note).
+  `graceMaxDurTicks` is now computed as `min(Tq/8, 0.5 * familyMNVticks)` per spec §3.1.1,
+  so grace threshold correctly responds to rhythm family changes.
+
+### Added - Timing prior tags in ornament hypotheses
+
+Each ornament class has a characteristic beat-position relationship in performed MIDI:
+- **mordent / turn** take from the principal (ornament precedes beat; principal on-beat).
+- **grace_group** is added to the principal (grace off-beat; principal stays on-beat).
+- **trill** IS the principal (starts on-beat; no following principal).
+
+`detectOrnamentHypotheses` now applies these priors after detection:
+- `trill_is_principal` always added to trill hypotheses.
+- `timing_prior_conflict` added when a hypothesis conflicts with its expected beat placement
+  (e.g. grace starting on a beat, mordent/turn principal appearing off-beat, trill starting
+  well off-beat). These tags are available to downstream consumers (quantization, UI) for
+  extra scrutiny on ambiguous cases.
+
+### Added - Pipeline wiring TODO
+
+Prominent `TODO(pipeline-wiring)` comment added above `parseMidiFromFile` in `midiCore.ts`
+documenting what is needed to hook ornament detection into the export/transform pipeline
+per `PROJECT_INTENT §1`, including `familyMNVticks` passing and `detectOrnaments` flag
+respecting. See `midiPipeline.ts:copyAndTransformTrackEvents` as the integration point.
+
 ### Fixed - Deploy built artifact to Pages instead of source tree
 - Added GitHub Actions workflow `.github/workflows/deploy-pages.yml` that installs dependencies, runs `npm run build`, uploads `dist/`, and deploys via `actions/deploy-pages`.
 - Documented Pages deployment requirement in `README.md`: set Pages source to **GitHub Actions** so the built Vite output is served.
