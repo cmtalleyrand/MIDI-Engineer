@@ -13,7 +13,7 @@ import {
     getAbcPitch 
 } from './abcUtils';
 
-function convertMidiToAbc(midi: Midi, fileName: string, options: ConversionOptions, forcedGridTick: number = 0): string {
+export function renderMidiToAbc(midi: Midi, fileName: string, options: ConversionOptions, forcedGridTick: number = 0): string {
     const ts = midi.header.timeSignatures[0]?.timeSignature || [4, 4];
     const ppq = midi.header.ppq;
     let quantGrid = forcedGridTick;
@@ -134,7 +134,7 @@ export async function exportTracksToAbc(originalMidi: Midi, trackIds: number[], 
         } 
     });
     
-    const abcStr = convertMidiToAbc(newMidi, newFileName, resolvedOptions, getQuantizationTickValue(resolvedOptions.quantizationValue, newMidi.header.ppq));
+    const abcStr = renderMidiToAbc(newMidi, newFileName, resolvedOptions, getQuantizationTickValue(resolvedOptions.quantizationValue, newMidi.header.ppq));
     const blob = new Blob([abcStr], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = newFileName; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
