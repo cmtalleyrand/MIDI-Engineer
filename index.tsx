@@ -124,3 +124,7 @@ window.setTimeout(() => {
   window.removeEventListener('error', handleBootstrapError);
   window.removeEventListener('unhandledrejection', handleBootstrapRejection);
 }, 0);
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
