@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:fixtures": "rm -rf .test-dist && tsc -p tsconfig.fixture-tests.json && node -e \"require('fs').writeFileSync('.test-dist/package.json', '{\\\"type\\\":\\\"commonjs\\\"}\\n')\" && node .test-dist/tests/run-fixture-suite.js",
+    "test": "npm run test:fixtures"
   },
   "dependencies": {
     "react": "18.2.0",
