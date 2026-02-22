@@ -46,7 +46,7 @@ function convertMidiToAbc(midi: Midi, fileName: string, options: ConversionOptio
         
         let voices: any[][] = [];
         if (options.outputStrategy === 'separate_voices') {
-            const distribution = distributeToVoices(track.notes, options);
+            const distribution = distributeToVoices(track.notes, options, ppq);
             voices = distribution.voices;
             if (distribution.orphans.length > 0) {
                 // Treat orphans as a final voice for export so data is not dropped

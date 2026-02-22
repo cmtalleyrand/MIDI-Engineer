@@ -120,7 +120,7 @@ export function analyzeTrack(midi: Midi, trackId: number, options?: ConversionOp
     
     const transformStats = options ? calculateTransformationStats(track, options, ppq) : undefined;
     
-    const distribution = distributeToVoices(notes, options);
+    const distribution = distributeToVoices(notes, options, ppq);
     // Use voices for count. Orphans are not considered a "Voice" for SATB analysis purposes.
     const voices = distribution.voices;
     
