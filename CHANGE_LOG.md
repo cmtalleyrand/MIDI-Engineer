@@ -8,6 +8,55 @@ Purpose: persistent high-detail project memory for future AI sessions and mainta
 - Updated voice-lane ceiling selection to preserve musically meaningful transient polyphony (cumulative >= 1/8 note) instead of relying only on full-measure sustained density.
 - Expanded anchor assignment sweep to iterate from selected ceiling down through lower densities so non-max but still structural regions can seed anchors.
 - Increased gap-fill chord-addition penalty from `+10` to `+12.5` to reduce over-eager chord packing.
+### Fixed - Ornament detector correctness and spec alignment
+
+- **Turn span bug**: span was computed as `getEnd(e) - a.ticks`, including the sustained
+  principal note's full duration, which caused `span > ornamentMaxSpanTicks` to reject nearly
+  all turns silently. Fixed to `e.ticks - a.ticks` (ornamental note group only).
+
+- **Trill max span removed**: trills can be arbitrarily long — the pattern is unambiguously
+  recognisable by strict pitch alternation alone. Removed the `span <= 2 * Tq` guard.
+  The greedy selector naturally prefers the longest window because confidence scales with
+  note count (`0.7 + (len-4) * 0.04`).
+
+- **`familyMNVticks` added to `OrnamentDetectionParams`**: `getDefaultOrnamentDetectionParams`
+  now accepts an optional `familyMNVticks` argument (defaults to `Tq/4` = 1/16th note).
+  `graceMaxDurTicks` is now computed as `min(Tq/8, 0.5 * familyMNVticks)` per spec §3.1.1,
+  so grace threshold correctly responds to rhythm family changes.
+
+### Added - Timing prior tags in ornament hypotheses
+
+Each ornament class has a characteristic beat-position relationship in performed MIDI:
+- **mordent / turn** take from the principal (ornament precedes beat; principal on-beat).
+- **grace_group** is added to the principal (grace off-beat; principal stays on-beat).
+- **trill** IS the principal (starts on-beat; no following principal).
+
+`detectOrnamentHypotheses` now applies these priors after detection:
+- `trill_is_principal` always added to trill hypotheses.
+- `timing_prior_conflict` added when a hypothesis conflicts with its expected beat placement
+  (e.g. grace starting on a beat, mordent/turn principal appearing off-beat, trill starting
+  well off-beat). These tags are available to downstream consumers (quantization, UI) for
+  extra scrutiny on ambiguous cases.
+
+### Added - Pipeline wiring TODO
+
+Prominent `TODO(pipeline-wiring)` comment added above `parseMidiFromFile` in `midiCore.ts`
+documenting what is needed to hook ornament detection into the export/transform pipeline
+per `PROJECT_INTENT §1`, including `familyMNVticks` passing and `detectOrnaments` flag
+respecting. See `midiPipeline.ts:copyAndTransformTrackEvents` as the integration point.
+
+### Fixed - Deploy built artifact to Pages instead of source tree
+- Added GitHub Actions workflow `.github/workflows/deploy-pages.yml` that installs dependencies, runs `npm run build`, uploads `dist/`, and deploys via `actions/deploy-pages`.
+- Documented Pages deployment requirement in `README.md`: set Pages source to **GitHub Actions** so the built Vite output is served.
+- This addresses production black-screen behavior where live Pages served source `index.html` and attempted to load `/index.tsx` (404), leaving only the bootstrap fallback visible.
+- Updated source `index.html` entry module path from `/index.tsx` to `./index.tsx` so project-subpath hosting no longer resolves to the domain root (`https://cmtalleyrand.github.io/index.tsx`).
+
+
+### Fixed - GitHub Pages deployment pathing and entrypoint cleanup
+- Added an explicit Vite `base` configuration for production GitHub Pages deployments (`/MIDI-Engineer/`) with `VITE_BASE_PATH` override support.
+- Simplified `index.html` to a single Vite module entry and removed non-Vite import map wiring that could conflict with bundled production output.
+- Removed stale `/index.css` reference that produced runtime/build warnings and could mask asset-loading issues during deployment verification.
+- Kept service worker registration using a location-resolved URL so registration remains origin-safe under project subpaths.
 
 ### Changed - Precision pass for ornament definitions and voice-cost semantics
 - Replaced high-level ornament taxonomy wording with deterministic, parameterized detection criteria.

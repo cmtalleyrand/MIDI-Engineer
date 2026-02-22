@@ -4,6 +4,85 @@ import { ConversionOptions, MidiEventType, PianoRollTrackData } from '../../type
 import { quantizeNotes, performInversion, performModalConversion, pruneOverlaps, performMelodicInversion, cropToRange } from './midiTransform';
 import { distributeToVoices } from './midiVoices';
 
+export type ExportTarget = 'midi' | 'abc';
+
+export interface ExportResolutionDebugInfo {
+    target: ExportTarget;
+    quantizationPath: 'resolved_shadow' | 'bypass';
+    explicitUserQuantization: boolean;
+    quantizationValue: string;
+    quantizeDurationMin: string;
+    primaryRhythmEnabled: boolean;
+    primaryRhythmValue: string;
+    secondaryRhythmEnabled: boolean;
+}
+
+export function resolveExportOptions(options: ConversionOptions, target: ExportTarget): { options: ConversionOptions; debug: ExportResolutionDebugInfo } {
+    const explicitUserQuantization = options.primaryRhythm.enabled;
+
+    if (target === 'midi' && !explicitUserQuantization) {
+        return {
+            options: {
+                ...options,
+                quantizationValue: 'off',
+                quantizeDurationMin: 'off',
+                primaryRhythm: { ...options.primaryRhythm, enabled: false },
+                secondaryRhythm: { ...options.secondaryRhythm, enabled: false }
+            },
+            debug: {
+                target,
+                quantizationPath: 'bypass',
+                explicitUserQuantization,
+                quantizationValue: 'off',
+                quantizeDurationMin: 'off',
+                primaryRhythmEnabled: false,
+                primaryRhythmValue: options.primaryRhythm.minNoteValue,
+                secondaryRhythmEnabled: false
+            }
+        };
+    }
+
+    if (target === 'abc' && !explicitUserQuantization) {
+        const primaryRhythmValue = options.primaryRhythm.minNoteValue === 'off' ? '1/16' : options.primaryRhythm.minNoteValue;
+        return {
+            options: {
+                ...options,
+                quantizationValue: primaryRhythmValue,
+                primaryRhythm: { ...options.primaryRhythm, enabled: true, minNoteValue: primaryRhythmValue }
+            },
+            debug: {
+                target,
+                quantizationPath: 'resolved_shadow',
+                explicitUserQuantization,
+                quantizationValue: primaryRhythmValue,
+                quantizeDurationMin: options.quantizeDurationMin,
+                primaryRhythmEnabled: true,
+                primaryRhythmValue,
+                secondaryRhythmEnabled: options.secondaryRhythm.enabled
+            }
+        };
+    }
+
+    return {
+        options,
+        debug: {
+            target,
+            quantizationPath: explicitUserQuantization ? 'resolved_shadow' : 'bypass',
+            explicitUserQuantization,
+            quantizationValue: options.quantizationValue,
+            quantizeDurationMin: options.quantizeDurationMin,
+            primaryRhythmEnabled: options.primaryRhythm.enabled,
+            primaryRhythmValue: options.primaryRhythm.minNoteValue,
+            secondaryRhythmEnabled: options.secondaryRhythm.enabled
+        }
+    };
+}
+
+
+export function logExportResolution(debug: ExportResolutionDebugInfo): void {
+    console.debug(`[Export Resolution] ${debug.target.toUpperCase()} quantization path`, debug);
+}
+
 export function copyAndTransformTrackEvents(
     sourceTrack: Track, 
     destinationTrack: Track, 
@@ -199,27 +278,29 @@ export function getTransformedTrackDataForPianoRoll(originalMidi: Midi, trackId:
 
 export async function combineAndDownload(originalMidi: Midi, trackIds: number[], newFileName: string, eventsToDelete: Set<MidiEventType>, options: ConversionOptions): Promise<void> {
     if (trackIds.length < 1) throw new Error("At least one track must be selected.");
+    const { options: resolvedOptions, debug } = resolveExportOptions(options, 'midi');
+    logExportResolution(debug);
     
     const newMidi = new Midi();
     if (originalMidi.header.name) newMidi.header.name = originalMidi.header.name;
-    newMidi.header.setTempo(options.tempo);
-    newMidi.header.timeSignatures = [{ ticks: 0, timeSignature: [options.timeSignature.numerator, options.timeSignature.denominator] }];
+    newMidi.header.setTempo(resolvedOptions.tempo);
+    newMidi.header.timeSignatures = [{ ticks: 0, timeSignature: [resolvedOptions.timeSignature.numerator, resolvedOptions.timeSignature.denominator] }];
 
     const selectedTrackIds = new Set(trackIds);
 
     // Strategy 1: Keep Separate Tracks
-    if (options.outputStrategy === 'separate_tracks') {
+    if (resolvedOptions.outputStrategy === 'separate_tracks') {
         originalMidi.tracks.forEach((track, index) => {
             if (selectedTrackIds.has(index)) {
                 const newTrack = newMidi.addTrack();
                 newTrack.name = track.name;
                 newTrack.instrument.number = track.instrument.number;
                 newTrack.instrument.name = track.instrument.name;
-                copyAndTransformTrackEvents(track, newTrack, options, eventsToDelete, newMidi.header, originalMidi.header.ppq);
+                copyAndTransformTrackEvents(track, newTrack, resolvedOptions, eventsToDelete, newMidi.header, originalMidi.header.ppq);
                 
-                if (options.pruneOverlaps) {
+                if (resolvedOptions.pruneOverlaps) {
                     const multipliers: number[] = [0, 0.03125, 0.0416, 0.0625, 0.0833, 0.125, 0.1666, 0.25, 0.3333, 0.5, 1.0];
-                    const pruneThresholdTicks = Math.round(newMidi.header.ppq * multipliers[options.pruneThresholdIndex]);
+                    const pruneThresholdTicks = Math.round(newMidi.header.ppq * multipliers[resolvedOptions.pruneThresholdIndex]);
                     newTrack.notes = pruneOverlaps(newTrack.notes, pruneThresholdTicks);
                 }
             }
@@ -237,13 +318,13 @@ export async function combineAndDownload(originalMidi: Midi, trackIds: number[],
 
         originalMidi.tracks.forEach((track, index) => {
             if (selectedTrackIds.has(index)) {
-                copyAndTransformTrackEvents(track, combinedTrack, options, eventsToDelete, newMidi.header, originalMidi.header.ppq);
+                copyAndTransformTrackEvents(track, combinedTrack, resolvedOptions, eventsToDelete, newMidi.header, originalMidi.header.ppq);
             }
         });
 
-        if (options.pruneOverlaps) {
+        if (resolvedOptions.pruneOverlaps) {
             const multipliers: number[] = [0, 0.03125, 0.0416, 0.0625, 0.0833, 0.125, 0.1666, 0.25, 0.3333, 0.5, 1.0];
-            const pruneThresholdTicks = Math.round(newMidi.header.ppq * multipliers[options.pruneThresholdIndex]);
+            const pruneThresholdTicks = Math.round(newMidi.header.ppq * multipliers[resolvedOptions.pruneThresholdIndex]);
             combinedTrack.notes = pruneOverlaps(combinedTrack.notes, pruneThresholdTicks);
         }
 

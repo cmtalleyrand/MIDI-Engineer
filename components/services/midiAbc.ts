@@ -2,7 +2,7 @@
 import { Midi } from '@tonejs/midi';
 import { ConversionOptions, MidiEventType } from '../../types';
 import { getQuantizationTickValue } from './midiTransform';
-import { copyAndTransformTrackEvents } from './midiPipeline';
+import { copyAndTransformTrackEvents, logExportResolution, resolveExportOptions } from './midiPipeline';
 import { distributeToVoices, getVoiceLabel } from './midiVoices';
 import { analyzeScale } from './musicTheory';
 import { 
@@ -117,10 +117,12 @@ function convertMidiToAbc(midi: Midi, fileName: string, options: ConversionOptio
 }
 
 export async function exportTracksToAbc(originalMidi: Midi, trackIds: number[], newFileName: string, eventsToDelete: Set<MidiEventType>, options: ConversionOptions): Promise<void> {
+    const { options: resolvedOptions, debug } = resolveExportOptions(options, 'abc');
+    logExportResolution(debug);
     const newMidi = new Midi(); 
     if (originalMidi.header.name) newMidi.header.name = originalMidi.header.name;
-    newMidi.header.setTempo(options.tempo); 
-    newMidi.header.timeSignatures = [{ ticks: 0, timeSignature: [options.timeSignature.numerator, options.timeSignature.denominator] }];
+    newMidi.header.setTempo(resolvedOptions.tempo); 
+    newMidi.header.timeSignatures = [{ ticks: 0, timeSignature: [resolvedOptions.timeSignature.numerator, resolvedOptions.timeSignature.denominator] }];
     
     trackIds.forEach(id => { 
         const t = originalMidi.tracks[id]; 
@@ -128,11 +130,11 @@ export async function exportTracksToAbc(originalMidi: Midi, trackIds: number[], 
             const target = newMidi.addTrack(); 
             target.name = t.name; 
             target.instrument = t.instrument; 
-            copyAndTransformTrackEvents(t, target, options, eventsToDelete, newMidi.header, originalMidi.header.ppq); 
+            copyAndTransformTrackEvents(t, target, resolvedOptions, eventsToDelete, newMidi.header, originalMidi.header.ppq); 
         } 
     });
     
-    const abcStr = convertMidiToAbc(newMidi, newFileName, options, getQuantizationTickValue(options.quantizationValue, newMidi.header.ppq));
+    const abcStr = convertMidiToAbc(newMidi, newFileName, resolvedOptions, getQuantizationTickValue(resolvedOptions.quantizationValue, newMidi.header.ppq));
     const blob = new Blob([abcStr], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = newFileName; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);

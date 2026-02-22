@@ -68,9 +68,32 @@ npm run build
 npm run preview
 ```
 
+## GitHub Pages Deployment
+
+This project must be deployed from the **built `dist/` artifact**, not directly from repository source files.
+
+- The repository includes `.github/workflows/deploy-pages.yml` to build with Vite and publish `dist/` using GitHub Pages Actions.
+- In GitHub repository settings, set **Pages → Build and deployment → Source = GitHub Actions**.
+
+**⚠️ CRITICAL: Base Path Configuration**
+- This app is deployed to `https://cmtalleyrand.github.io/MIDI-Engineer/` (subdirectory deployment)
+- The `vite.config.ts` must set `base: '/MIDI-Engineer/'` for production builds
+- Using relative paths (e.g., `./`) will break module loading and cause startup failures
+- If deploying to a different URL, update the base path in `vite.config.ts` accordingly
+
+Deploying source `index.html` directly will request `/index.tsx` in the browser, which cannot run in production and leads to a blank/fallback screen.
+
 ## Release Documentation Rules
 
 - Update `README.md` per release.
 - Update `CHANGE_LOG.md` on every code/documentation change.
 - Update `PROJECT_INTENT.md` only on explicit intent revision.
 - Keep `PROJECT_PLAN.md` empty unless a planning request is active.
+
+## GitHub Pages deployment
+
+This app must be deployed from the built `dist/` output (not from repository root source files).
+The `index.html` in repo root references `/index.tsx`, which only works when served by Vite in dev mode.
+GitHub Pages should therefore publish the workflow artifact produced by `npm run build`.
+
+The included workflow `.github/workflows/deploy-pages.yml` builds with Vite and deploys `dist/` on pushes to `main`.
