@@ -59,8 +59,6 @@ export function formatFraction(num: number, den: number): string {
 export interface AbcNoteInfo {
     midi: number;
     tied: boolean;
-    gracePrefix?: string;  // e.g. "{C}" for ABC grace note syntax
-    decoration?: string;   // e.g. "!mordent!" for ABC decorations
 }
 
 export interface AbcEvent {
@@ -96,9 +94,7 @@ export function flattenPolyphonyToChords(notes: any[]): AbcEvent[] {
         } else {
             const noteData: AbcNoteInfo[] = activeNotes.map(n => ({
                 midi: n.midi,
-                tied: (n.ticks + n.durationTicks) > end,
-                gracePrefix: (n as any).gracePrefix,
-                decoration: (n as any).decoration,
+                tied: (n.ticks + n.durationTicks) > end
             }));
             noteData.sort((a,b) => a.midi - b.midi);
             events.push({ type: 'note', ticks: start, durationTicks: duration, notes: noteData });
@@ -123,9 +119,7 @@ export function segmentEventsByMeasure(events: AbcEvent[], ticksPerMeasure: numb
             const isSplitAtMeasure = (currentTick + remainingDuration) > measureEnd;
             const notes = event.notes ? event.notes.map(n => ({
                 midi: n.midi,
-                tied: n.tied || isSplitAtMeasure,
-                gracePrefix: n.gracePrefix,
-                decoration: n.decoration,
+                tied: n.tied || isSplitAtMeasure 
             })) : undefined;
 
             measureMap.get(measureIndex)!.push({
