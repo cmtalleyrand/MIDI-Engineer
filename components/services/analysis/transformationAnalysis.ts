@@ -59,8 +59,9 @@ export function calculateTransformationStats(track: Track, options: ConversionOp
     }
 
     if (options.removeShortNotesThreshold > 0) {
+        const thresholdTicks = Math.round(options.removeShortNotesThreshold * (ppq / 480));
         const before = workingNotes.length;
-        workingNotes = workingNotes.filter(n => n.durationTicks >= options.removeShortNotesThreshold);
+        workingNotes = workingNotes.filter(n => n.durationTicks >= thresholdTicks);
         removedByDuration = before - workingNotes.length;
     }
 

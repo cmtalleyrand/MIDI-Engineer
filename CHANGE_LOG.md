@@ -4,6 +4,10 @@ Purpose: persistent high-detail project memory for future AI sessions and mainta
 
 ## [Unreleased]
 
+### Changed - Voice separation polyphony ceiling and chord-assignment sensitivity
+- Updated voice-lane ceiling selection to preserve musically meaningful transient polyphony (cumulative >= 1/8 note) instead of relying only on full-measure sustained density.
+- Expanded anchor assignment sweep to iterate from selected ceiling down through lower densities so non-max but still structural regions can seed anchors.
+- Increased gap-fill chord-addition penalty from `+10` to `+12.5` to reduce over-eager chord packing.
 ### Fixed - Ornament detector correctness and spec alignment
 
 - **Turn span bug**: span was computed as `getEnd(e) - a.ticks`, including the sustained

@@ -106,15 +106,32 @@ export function distributeToVoices(notes: any[] | RawNote[], options?: Conversio
         return len >= TICKS_PER_MEASURE; 
     };
 
-    let ceilingDensity = maxGlobalDensity;
-    while (ceilingDensity >= 1) {
-        const areas = findAreasAtDensity(ceilingDensity);
+    // Peak-preserving helper: brief but musically meaningful polyphony should still inform
+    // lane count even if it does not persist for a full measure.
+    const getCumulativeDensitySpan = (targetDensity: number) => {
+        return slices.reduce((sum, slice) => {
+            if (slice.activeNotes.length >= targetDensity) {
+                return sum + (slice.end - slice.start);
+            }
+            return sum;
+        }, 0);
+    };
+
+    let sustainedDensity = maxGlobalDensity;
+    while (sustainedDensity >= 1) {
+        const areas = findAreasAtDensity(sustainedDensity);
         if (areas.some(checkSustain)) break;
-        ceilingDensity--;
+        sustainedDensity--;
     }
 
-    let finalPolyphony = ceilingDensity;
-    if (finalPolyphony === 0) finalPolyphony = Math.max(1, maxGlobalDensity - 1); // Fallback
+    // Treat at least an eighth-note of cumulative activity as meaningful transient polyphony.
+    let transientDensity = maxGlobalDensity;
+    while (transientDensity >= 1) {
+        if (getCumulativeDensitySpan(transientDensity) >= EIGHTH_GAP) break;
+        transientDensity--;
+    }
+
+    let finalPolyphony = Math.max(1, sustainedDensity, transientDensity);
 
     if (options?.voiceSeparationMaxVoices && options.voiceSeparationMaxVoices > 0) {
         finalPolyphony = options.voiceSeparationMaxVoices;
@@ -128,7 +145,7 @@ export function distributeToVoices(notes: any[] | RawNote[], options?: Conversio
     // PHASE 1: ITERATIVE ANCHOR ASSIGNMENT (VERTICAL)
     // ---------------------------------------------------------
     // We only iterate down to the point where density implies unambiguous structure.
-    for (let d = finalPolyphony; d >= finalPolyphony; d--) {
+    for (let d = finalPolyphony; d >= 1; d--) {
         const areas = findAreasAtDensity(d);
         const sustainedAreas = areas.filter(checkSustain);
 
@@ -154,8 +171,8 @@ export function distributeToVoices(notes: any[] | RawNote[], options?: Conversio
                 
                 if (unassignedInSlice.length === 0) return;
 
-                // STRATEGY: MAX DENSITY BLOCK ONLY
-                if (activeNotes.length >= finalPolyphony) {
+                // STRATEGY: DENSITY-LEVEL BLOCK (respect current sweep level `d`)
+                if (activeNotes.length >= d) {
                      let mathDetails: any[] = [];
                      
                      for(let k=0; k < activeNotes.length; k++) {
@@ -269,8 +286,8 @@ export function distributeToVoices(notes: any[] | RawNote[], options?: Conversio
             
             let penalty = 0;
             if (isChordAddition) {
-                penalty = 10;
-                details.push("Chord (+10)");
+                penalty = 12.5;
+                details.push("Chord (+12.5)");
             } else {
                 const isPrevClose = (nStart - prevEnd) <= TICKS_PER_MEASURE;
                 const isNextClose = (nextStart - nEnd) <= TICKS_PER_MEASURE;

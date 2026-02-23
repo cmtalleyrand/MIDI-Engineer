@@ -152,7 +152,7 @@ export function analyzeTrack(midi: Midi, trackId: number, options?: ConversionOp
     if (options?.detectOrnaments) notes = detectAndTagOrnaments(notes, ppq);
     
     const transformStats = options ? calculateTransformationStats(track, options, ppq) : undefined;
-    const distribution = distributeToVoices(notes, options);
+    const distribution = distributeToVoices(notes, options, ppq);
     const voices = distribution.voices;
     
     // Calculate Output Rhythm Stats

@@ -270,7 +270,8 @@ export function getTransformedNotes(notes: any[], options: ConversionOptions, pp
     // Filter first so we don't process noise. Note: RemoveShortNotesThreshold is in original PPQ ticks.
     let processed = notes.map(n => ({...n}));
     if (options.removeShortNotesThreshold > 0) {
-        processed = processed.filter(n => n.durationTicks >= options.removeShortNotesThreshold);
+        const thresholdTicks = Math.round(options.removeShortNotesThreshold * (ppq / 480));
+        processed = processed.filter(n => n.durationTicks >= thresholdTicks);
     }
 
     // 2. Quantize (Unscaled)

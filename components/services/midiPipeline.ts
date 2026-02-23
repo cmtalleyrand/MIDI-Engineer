@@ -119,10 +119,12 @@ export function copyAndTransformTrackEvents(
         } as any;
     });
 
-    // 2. Filter Short Notes (On original timeframe, effectively dest timeframe now)
-    const scaledThreshold = Math.round(options.removeShortNotesThreshold * ppqRatio);
-    if (scaledThreshold > 0) {
-        transformedNotes = transformedNotes.filter(n => n.durationTicks >= scaledThreshold);
+    // 2. Filter Short Notes
+    // `removeShortNotesThreshold` is stored in 480-PPQ ticks from settings;
+    // normalize it once to the destination PPQ grid (not source->dest ratio).
+    const thresholdTicks = Math.round(options.removeShortNotesThreshold * (destPPQ / 480));
+    if (thresholdTicks > 0) {
+        transformedNotes = transformedNotes.filter(n => n.durationTicks >= thresholdTicks);
     }
 
     // 3. Quantize (On destination timeframe)
@@ -235,7 +237,7 @@ export function getTransformedTrackDataForPianoRoll(originalMidi: Midi, trackId:
     
     copyAndTransformTrackEvents(originalTrack, newTrack, options, new Set(), newMidi.header, originalMidi.header.ppq);
     
-    const distribution = distributeToVoices(newTrack.notes, options);
+    const distribution = distributeToVoices(newTrack.notes, options, newMidi.header.ppq);
     const noteVoiceMap = new Map<any, number>();
     const noteExplanationMap = new Map<any, any>();
     const noteShadowDecisionMap = new Map<any, any>();
@@ -327,8 +329,8 @@ export async function combineAndDownload(originalMidi: Midi, trackIds: number[],
         }
 
         // Strategy 3: Separate Voices
-        if (resolvedOptions.outputStrategy === 'separate_voices') {
-            const distribution = distributeToVoices(combinedTrack.notes, resolvedOptions);
+        if (options.outputStrategy === 'separate_voices') {
+            const distribution = distributeToVoices(combinedTrack.notes, options, newMidi.header.ppq);
             newMidi.tracks.pop(); // Remove combined track
             
             // Add Voices
