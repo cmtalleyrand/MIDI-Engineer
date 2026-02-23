@@ -5,13 +5,18 @@ import { getQuantizationTickValue } from './midiTransform';
 import { copyAndTransformTrackEvents, logExportResolution, resolveExportOptions } from './midiPipeline';
 import { distributeToVoices, getVoiceLabel } from './midiVoices';
 import { analyzeScale } from './musicTheory';
-import { 
-    determineBestLUnit, 
-    formatFraction, 
-    flattenPolyphonyToChords, 
-    segmentEventsByMeasure, 
-    getAbcPitch 
+import {
+    determineBestLUnit,
+    formatFraction,
+    flattenPolyphonyToChords,
+    segmentEventsByMeasure,
+    getAbcPitch
 } from './abcUtils';
+import {
+    detectOrnamentHypotheses,
+    selectOrnamentHypotheses,
+    getDefaultOrnamentDetectionParams,
+} from './ornamentDetector';
 
 function convertMidiToAbc(midi: Midi, fileName: string, options: ConversionOptions, forcedGridTick: number = 0): string {
     const ts = midi.header.timeSignatures[0]?.timeSignature || [4, 4];
@@ -25,13 +30,82 @@ function convertMidiToAbc(midi: Midi, fileName: string, options: ConversionOptio
         quantGrid = tErr < sErr ? Math.round(ppq/12) : Math.round(ppq/4);
         if (quantGrid === 0) quantGrid = 1;
     }
-    midi.tracks.forEach(t => t.notes.forEach(n => { n.ticks = Math.round(n.ticks/quantGrid)*quantGrid; n.durationTicks = Math.max(quantGrid, Math.round(n.durationTicks/quantGrid)*quantGrid); }));
+
+    // --- KEY SIGNATURE LOGIC (must come before ornament detection to get scaleMap) ---
+    const { scaleMap, keyString, preferFlats } = analyzeScale(options.modalConversion.root, options.modalConversion.modeName, options.keySignatureSpelling);
+
+    // --- ORNAMENT DETECTION (must run BEFORE quantization: short grace notes are expanded by quantGrid snapping) ---
+    // allOrnamentMemberIds: note IDs that are ornamental figures (excluded from regular note stream)
+    // principalOrnamentData: maps principal note ID → { gracePrefix, decoration }
+    const allOrnamentMemberIds = new Set<string>();
+    const principalOrnamentData = new Map<string, { gracePrefix?: string; decoration?: string }>();
+
+    midi.tracks.forEach(track => {
+        if (track.notes.length === 0) return;
+        const ornParams = getDefaultOrnamentDetectionParams(ppq);
+        const hypotheses = detectOrnamentHypotheses(track.notes, ornParams);
+        const selected = selectOrnamentHypotheses(hypotheses);
+
+        for (const h of selected) {
+            if (h.class === 'trill') {
+                // For trill, memberNoteIds includes the principal; exclude all but the principal
+                h.memberNoteIds
+                    .filter(id => id !== h.principalNoteRef)
+                    .forEach(id => allOrnamentMemberIds.add(id));
+                principalOrnamentData.set(h.principalNoteRef, {
+                    ...principalOrnamentData.get(h.principalNoteRef),
+                    decoration: '!trill!',
+                });
+            } else {
+                // For grace_group, mordent, turn: memberNoteIds are all non-principal ornament figures
+                h.memberNoteIds.forEach(id => allOrnamentMemberIds.add(id));
+
+                if (h.class === 'grace_group') {
+                    const graceNotes = track.notes
+                        .filter(n => h.memberNoteIds.includes((n as any).id))
+                        .sort((a, b) => a.ticks - b.ticks);
+                    const graceStr = '{' + graceNotes.map(n => getAbcPitch(n.midi, scaleMap, preferFlats)).join('') + '}';
+                    principalOrnamentData.set(h.principalNoteRef, {
+                        ...principalOrnamentData.get(h.principalNoteRef),
+                        gracePrefix: graceStr,
+                    });
+                } else if (h.class === 'mordent') {
+                    principalOrnamentData.set(h.principalNoteRef, {
+                        ...principalOrnamentData.get(h.principalNoteRef),
+                        decoration: '!mordent!',
+                    });
+                } else if (h.class === 'turn') {
+                    principalOrnamentData.set(h.principalNoteRef, {
+                        ...principalOrnamentData.get(h.principalNoteRef),
+                        decoration: '!turn!',
+                    });
+                }
+            }
+        }
+    });
+
+    // Quantize notes. Ornament members skip the duration-expansion step since their duration is
+    // irrelevant in ABC output (grace notes render as {pitch}, decorations are notational symbols).
+    midi.tracks.forEach(t => t.notes.forEach(n => {
+        n.ticks = Math.round(n.ticks / quantGrid) * quantGrid;
+        if (!allOrnamentMemberIds.has((n as any).id)) {
+            n.durationTicks = Math.max(quantGrid, Math.round(n.durationTicks / quantGrid) * quantGrid);
+        }
+    }));
+
+    // Tag principal notes with their ornament data so it flows through flattenPolyphonyToChords.
+    midi.tracks.forEach(t => t.notes.forEach(n => {
+        const id = (n as any).id;
+        if (id && principalOrnamentData.has(id)) {
+            const data = principalOrnamentData.get(id)!;
+            if (data.gracePrefix) (n as any).gracePrefix = data.gracePrefix;
+            if (data.decoration) (n as any).decoration = data.decoration;
+        }
+    }));
+
     const allNotes = midi.tracks.flatMap(t => t.notes);
     const maxSongTick = allNotes.reduce((max, n) => Math.max(max, n.ticks + n.durationTicks), 0);
     const lUnit = determineBestLUnit(allNotes, ppq);
-    
-    // --- KEY SIGNATURE LOGIC ---
-    const { scaleMap, keyString, preferFlats } = analyzeScale(options.modalConversion.root, options.modalConversion.modeName, options.keySignatureSpelling);
 
     let abc = `X:1\nT:${fileName.replace(/\.abc$/i, '')}\nM:${ts[0]}/${ts[1]}\nL:${lUnit.str}\nQ:1/4=${Math.round(midi.header.tempos[0]?.bpm || 120)}\n`;
     if (options.modalConversion.root === 0 && options.modalConversion.modeName === 'Major') {
@@ -40,10 +114,10 @@ function convertMidiToAbc(midi: Midi, fileName: string, options: ConversionOptio
     abc += `${keyString}\n`;
     const ticksPerM = Math.round(ppq * 4 * (ts[0] / ts[1]));
     const totalMeasures = Math.ceil(maxSongTick / ticksPerM);
-    
+
     midi.tracks.forEach((track, trackIndex) => {
         if (track.notes.length === 0) return;
-        
+
         let voices: any[][] = [];
         if (options.outputStrategy === 'separate_voices') {
             const distribution = distributeToVoices(track.notes, options, ppq);
@@ -58,34 +132,25 @@ function convertMidiToAbc(midi: Midi, fileName: string, options: ConversionOptio
 
         voices.forEach((vNotes, vIdx) => {
             const voiceId = options.outputStrategy === 'separate_voices' ? `${trackIndex + 1}_${vIdx + 1}` : `${trackIndex + 1}`;
-            
-            // Handle naming for Orphans (which will be the last index if added)
-            // But we can rely on getVoiceLabel to return 'Orphan' if index is -1, 
-            // but here we are iterating an array so vIdx is 0..N.
-            // If vIdx == voices.length - 1 AND distribution had orphans, it might be the orphans track.
-            // Better to rely on checking if this note set matches the orphans, but for simple export we just label sequentially or detect if it was orphans.
-            // Actually, we can check if it exceeds the expected polyphony, but let's just label it generic Voice N or rely on user knowing.
-            // Better: If we added orphans, it's the last one.
-            
             let voiceName = options.outputStrategy === 'separate_voices' ? getVoiceLabel(vIdx, voices.length) : track.name;
-            
-            // Heuristic for naming Orphan track in ABC if it was added
-            // (Since distributeToVoices returns N voices, if we have N+1, the last is orphans)
-            // Ideally we'd pass the orphan flag explicitly, but for now this is "not dropping info".
-            
+
             abc += `V:${voiceId} name="${voiceName}"\n`;
-            
+
+            // Exclude ornament member notes from regular rendering — they are represented
+            // by grace-note prefixes or decoration symbols on their principal notes.
+            const mainNotes = vNotes.filter((n: any) => !allOrnamentMemberIds.has(n.id));
+
             // FLATTEN POLYPHONY
-            const flattenedEvents = flattenPolyphonyToChords(vNotes);
+            const flattenedEvents = flattenPolyphonyToChords(mainNotes);
             const measures = segmentEventsByMeasure(flattenedEvents, ticksPerM);
-            
+
             let abcBody = '';
             let lineMeasureCount = 0;
             for (let m = 0; m < totalMeasures; m++) {
                 if (lineMeasureCount === 0) abcBody += `% Measure ${m + 1}\n`;
-                
+
                 const events = measures.get(m) || [];
-                
+
                 if (events.length === 0) {
                     abcBody += `z${formatFraction(ticksPerM, lUnit.ticks)} | `;
                 } else {
@@ -93,21 +158,24 @@ function convertMidiToAbc(midi: Midi, fileName: string, options: ConversionOptio
                     events.forEach(e => {
                         const durStr = formatFraction(e.durationTicks, lUnit.ticks);
                         if (e.type === 'rest') {
-                             mStr += `z${durStr} `;
+                            mStr += `z${durStr} `;
                         } else if (e.notes) {
-                             const notesStr = e.notes.map(n => getAbcPitch(n.midi, scaleMap, preferFlats) + (n.tied ? '-' : '')).join('');
-                             if (e.notes.length > 1) {
-                                 mStr += `[${notesStr}]${durStr} `;
-                             } else {
-                                 mStr += `${notesStr}${durStr} `;
-                             }
+                            // Grace prefix and decoration apply once per event (before the chord).
+                            const gracePrefix = e.notes.find(n => n.gracePrefix)?.gracePrefix ?? '';
+                            const decoration = e.notes.find(n => n.decoration)?.decoration ?? '';
+                            const notesStr = e.notes.map(n => getAbcPitch(n.midi, scaleMap, preferFlats) + (n.tied ? '-' : '')).join('');
+                            if (e.notes.length > 1) {
+                                mStr += `${decoration}${gracePrefix}[${notesStr}]${durStr} `;
+                            } else {
+                                mStr += `${decoration}${gracePrefix}${notesStr}${durStr} `;
+                            }
                         }
                     });
                     abcBody += mStr.trim() + " | ";
                 }
-                if (++lineMeasureCount >= 4) { 
-                    abcBody += "\n"; 
-                    lineMeasureCount = 0; 
+                if (++lineMeasureCount >= 4) {
+                    abcBody += "\n";
+                    lineMeasureCount = 0;
                 }
             }
             abc += abcBody.trim() + " |]\n\n";
