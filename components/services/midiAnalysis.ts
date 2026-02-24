@@ -13,7 +13,7 @@ import { getTransformedNotes } from './midiTransform';
 function analyzeVoiceLeading(notes: RawNote[]): Record<number, number> {
     const stats: Record<number, number> = {};
     const voices: Record<number, RawNote[]> = {};
-    notes.forEach(n => { const v = n.voiceIndex ?? 0; if (!voices[v]) voices[v] = []; voices[v].push(n); });
+    notes.filter(n => (n.voiceIndex ?? -1) >= 0).forEach(n => { const v = n.voiceIndex ?? 0; if (!voices[v]) voices[v] = []; voices[v].push(n); });
     Object.values(voices).forEach(vNotes => {
         vNotes.sort((a,b) => a.ticks - b.ticks);
         for(let i=0; i < vNotes.length - 1; i++) {

@@ -111,6 +111,7 @@ export interface ConversionOptions {
     voiceSeparationPitchBias: number; // 0 to 100, determines preference for vertical sorting vs horizontal smoothness
     voiceSeparationMaxVoices: number; // 0 = Auto, >0 = Forced Limit
     voiceSeparationDisableChords: boolean; // If true, never merge notes into chords
+    voiceSeparationOrphanThreshold: number; // Max accepted phase-2 continuity/crossing cost before forcing orphan
     // Export Options
     outputStrategy: OutputStrategy;
     

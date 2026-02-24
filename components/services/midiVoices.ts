@@ -201,7 +201,7 @@ export function distributeToVoices(notes: any[] | RawNote[], options?: Conversio
     const orphans: (any | RawNote)[] = [];
     const assignedNotes = new Set<any | RawNote>();
     const HARD_CROSSING_MARGIN = 1;
-    const HIGH_COST_ORPHAN_THRESHOLD = 120;
+    const HIGH_COST_ORPHAN_THRESHOLD = options?.voiceSeparationOrphanThreshold ?? 120;
 
     // ---------------------------------------------------------
     // PHASE 1: ITERATIVE ANCHOR ASSIGNMENT (VERTICAL)
@@ -361,6 +361,9 @@ export function distributeToVoices(notes: any[] | RawNote[], options?: Conversio
             const nextStart = next ? getTicks(next) : Infinity;
             const gapFromPrev = Number.isFinite(prevEnd) ? nStart - prevEnd : Infinity;
             const gapToNext = Number.isFinite(nextStart) ? nextStart - nEnd : Infinity;
+            // Intentionally conservative: chord-addition detection is tied to the selected `prev` neighbor.
+            // This means it may under-detect some overlapping contexts (especially at low overlap tolerance),
+            // but preserves predictable continuity-first behavior for this scoring path.
             const isChordAddition = prev && (getTicks(prev) === nStart || prevEnd > nStart);
             const trackLeapScale = estimateTrackLeapScale(track);
             const adaptiveLargeLeap = clamp(Math.round(trackLeapScale * 2.2), 11, 16);
@@ -465,6 +468,34 @@ export function distributeToVoices(notes: any[] | RawNote[], options?: Conversio
                     const pressurePenalty = 8 + (normalized ** 2) * 18;
                     penalty += pressurePenalty;
                     details.push(`Near Cross↓ (+${pressurePenalty.toFixed(1)})`);
+                }
+            }
+
+            // Hybrid crossing policy: keep hard guard at note onset (above), then add a soft penalty
+            // if adjacent-voice overlap during this note's span becomes too close.
+            const overlappingUpper = upperNeighborVoice
+                ? upperNeighborVoice.filter(n => getTicks(n) < nEnd && getEnd(n) > nStart)
+                : [];
+            if (overlappingUpper.length > 0) {
+                const minUpperClearance = Math.min(...overlappingUpper.map(n => getMidi(n) - nPitch));
+                if (Number.isFinite(minUpperClearance) && minUpperClearance < softCrossingMargin) {
+                    const normalized = clamp(1 - ((minUpperClearance - HARD_CROSSING_MARGIN) / Math.max(1, softCrossingMargin - HARD_CROSSING_MARGIN)), 0, 1);
+                    const spanPenalty = 6 + (normalized ** 2) * 14;
+                    penalty += spanPenalty;
+                    details.push(`Span Cross↑ (+${spanPenalty.toFixed(1)})`);
+                }
+            }
+
+            const overlappingLower = lowerNeighborVoice
+                ? lowerNeighborVoice.filter(n => getTicks(n) < nEnd && getEnd(n) > nStart)
+                : [];
+            if (overlappingLower.length > 0) {
+                const minLowerClearance = Math.min(...overlappingLower.map(n => nPitch - getMidi(n)));
+                if (Number.isFinite(minLowerClearance) && minLowerClearance < softCrossingMargin) {
+                    const normalized = clamp(1 - ((minLowerClearance - HARD_CROSSING_MARGIN) / Math.max(1, softCrossingMargin - HARD_CROSSING_MARGIN)), 0, 1);
+                    const spanPenalty = 6 + (normalized ** 2) * 14;
+                    penalty += spanPenalty;
+                    details.push(`Span Cross↓ (+${spanPenalty.toFixed(1)})`);
                 }
             }
 
