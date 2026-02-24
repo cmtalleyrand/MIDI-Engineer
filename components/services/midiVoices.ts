@@ -29,6 +29,83 @@ export interface VoiceDistributionResult {
     orphans: (any | RawNote)[];
 }
 
+function clamp(value: number, min: number, max: number): number {
+    return Math.max(min, Math.min(max, value));
+}
+
+function mean(values: number[]): number {
+    return values.length ? values.reduce((s, v) => s + v, 0) / values.length : 0;
+}
+
+function getLeapCost(leap: number): { cost: number; parts: string[] } {
+    if (leap <= 0) return { cost: 0, parts: ['0'] };
+
+    let cost = leap;
+    const parts = [`${leap.toFixed(1)}`];
+
+    // Requested stepwise discontinuities:
+    // - minor seventh notch (>= 10)
+    // - small notch between m7 and octave
+    // - larger notch above octave
+    // - smaller additional notch above >16
+    if (leap >= 10) {
+        cost += 1.8;
+        parts.push('+1.8@m7');
+    }
+    if (leap >= 12) {
+        cost += 1.2;
+        parts.push('+1.2@8ve');
+    }
+    if (leap > 12) {
+        const aboveOctave = (leap - 12) * 1.15;
+        cost += aboveOctave;
+        parts.push(`+${aboveOctave.toFixed(1)}>8veSlope`);
+    }
+    if (leap > 16) {
+        cost += 2.4;
+        parts.push('+2.4@>16');
+    }
+
+    return { cost, parts };
+}
+
+function estimateTrackLeapScale(track: (any | RawNote)[]): number {
+    if (track.length < 2) return 7;
+
+    const sorted = [...track].sort((a, b) => getTicks(a) - getTicks(b));
+    const recent = sorted.slice(-8);
+    const leaps: number[] = [];
+    for (let i = 1; i < recent.length; i++) {
+        leaps.push(Math.abs(getMidi(recent[i]) - getMidi(recent[i - 1])));
+    }
+
+    return clamp(mean(leaps), 5, 11);
+}
+
+function findPrevAndNextInVoice(
+    track: (any | RawNote)[],
+    nStart: number,
+    nEnd: number,
+    overlapTolerance: number
+): { prev?: any | RawNote; next?: any | RawNote } {
+    const effStart = nStart + overlapTolerance;
+    const effEnd = nEnd - overlapTolerance;
+
+    const prev = [...track]
+        .filter(existing => getEnd(existing) <= effStart)
+        .sort((a, b) => {
+            const endDelta = getEnd(b) - getEnd(a);
+            if (endDelta !== 0) return endDelta;
+            return getTicks(b) - getTicks(a);
+        })[0];
+
+    const next = [...track]
+        .filter(existing => getTicks(existing) >= effEnd)
+        .sort((a, b) => getTicks(a) - getTicks(b))[0];
+
+    return { prev, next };
+}
+
 // Helper for combinatorial voice selection
 function getCombinations(arr: number[], k: number): number[][] {
     if (k === 0) return [[]];
@@ -123,6 +200,8 @@ export function distributeToVoices(notes: any[] | RawNote[], options?: Conversio
     const voiceTracks: (any | RawNote)[][] = Array.from({ length: finalPolyphony }, () => []);
     const orphans: (any | RawNote)[] = [];
     const assignedNotes = new Set<any | RawNote>();
+    const HARD_CROSSING_MARGIN = 1;
+    const HIGH_COST_ORPHAN_THRESHOLD = 120;
 
     // ---------------------------------------------------------
     // PHASE 1: ITERATIVE ANCHOR ASSIGNMENT (VERTICAL)
@@ -239,20 +318,36 @@ export function distributeToVoices(notes: any[] | RawNote[], options?: Conversio
                 continue;
             }
             
-            // Find neighbors
-            const prev = track.filter(n => getTicks(n) <= nStart && n !== note).sort((a,b) => getTicks(b) - getTicks(a))[0];
-            const next = track.filter(n => getTicks(n) > nStart).sort((a,b) => getTicks(a) - getTicks(b))[0];
+            // Find nearest temporal neighbors in this voice (end-aligned prev, start-aligned next)
+            const { prev, next } = findPrevAndNextInVoice(track, nStart, nEnd, overlapTolerance);
+
+            // Neighbor voices around current time for near-hard crossing pressure checks
+            const upperNeighborVoice = v > 0 ? voiceTracks[v - 1] : null;
+            const lowerNeighborVoice = v < finalPolyphony - 1 ? voiceTracks[v + 1] : null;
+            const upperNeighbor = upperNeighborVoice
+                ? upperNeighborVoice.filter(n => getTicks(n) <= nStart && getEnd(n) > nStart).sort((a, b) => getTicks(b) - getTicks(a))[0]
+                : undefined;
+            const lowerNeighbor = lowerNeighborVoice
+                ? lowerNeighborVoice.filter(n => getTicks(n) <= nStart && getEnd(n) > nStart).sort((a, b) => getTicks(b) - getTicks(a))[0]
+                : undefined;
 
             let cost = 0;
             let details = [];
 
             // 1. Interval Cost
+            const leapFromPrev = prev ? Math.abs(getMidi(prev) - nPitch) : 0;
+            const leapToNext = next ? Math.abs(getMidi(next) - nPitch) : 0;
+            const leapCostPrev = getLeapCost(leapFromPrev);
+            const leapCostNext = getLeapCost(leapToNext);
+
             let intervalCost = 0;
-            if (prev) intervalCost += Math.abs(getMidi(prev) - nPitch);
-            if (next) intervalCost += Math.abs(getMidi(next) - nPitch);
+            if (prev) intervalCost += leapCostPrev.cost;
+            if (next) intervalCost += leapCostNext.cost;
             cost += intervalCost;
             
-            if (intervalCost > 0) details.push(`Dist: ${intervalCost}`);
+            if (intervalCost > 0) {
+                details.push(`Dist: ${intervalCost.toFixed(1)} [prev=${leapCostPrev.parts.join('')}; next=${leapCostNext.parts.join('')}]`);
+            }
             else details.push(`Dist: 0`);
             
             // 2. Zone/Centroid Bias (Tie-breaker only)
@@ -261,37 +356,124 @@ export function distributeToVoices(notes: any[] | RawNote[], options?: Conversio
             cost += centroidCost; 
             details.push(`Zone: ${centroidCost.toFixed(1)}`);
 
-            // 3. Structural Integrity (Island/Waking Prevention)
+            // 3. Structural Integrity (continuity / crossing / chord plausibility)
             const prevEnd = prev ? getEnd(prev) : -Infinity;
             const nextStart = next ? getTicks(next) : Infinity;
-            
+            const gapFromPrev = Number.isFinite(prevEnd) ? nStart - prevEnd : Infinity;
+            const gapToNext = Number.isFinite(nextStart) ? nextStart - nEnd : Infinity;
             const isChordAddition = prev && (getTicks(prev) === nStart || prevEnd > nStart);
-            
+            const trackLeapScale = estimateTrackLeapScale(track);
+            const adaptiveLargeLeap = clamp(Math.round(trackLeapScale * 2.2), 11, 16);
+            const softCrossingMargin = clamp(Math.round(trackLeapScale / 2), 2, 5);
+
             let penalty = 0;
+            const orphanTriggers: string[] = [];
             if (isChordAddition) {
                 penalty = 10;
                 details.push("Chord (+10)");
             } else {
-                const isPrevClose = (nStart - prevEnd) <= TICKS_PER_MEASURE;
-                const isNextClose = (nextStart - nEnd) <= TICKS_PER_MEASURE;
+                const gapPrevMeasures = Number.isFinite(gapFromPrev) ? gapFromPrev / TICKS_PER_MEASURE : 3;
+                const gapNextMeasures = Number.isFinite(gapToNext) ? gapToNext / TICKS_PER_MEASURE : 3;
+                const noteDuration = Math.max(1, nEnd - nStart);
+                const shortBlipFactor = clamp((ppq - noteDuration) / ppq, 0, 1); // 1 when extremely short, 0 at quarter-note+
+                const isolationFactor = clamp(gapPrevMeasures - 1, 0, 1.5) * clamp(gapNextMeasures - 1, 0, 1.5);
+                const phraseSupport = formsPhrase ? 1 : 0;
+                const continuityStress = (leapFromPrev + leapToNext) / Math.max(1, adaptiveLargeLeap * 2);
+                const wakeBlipPressure = shortBlipFactor * isolationFactor * (1 - 0.7 * phraseSupport);
 
-                if (!isPrevClose && !isNextClose) {
-                    if (!formsPhrase) {
-                        penalty = 1000;
-                        details.push("Island (+1000)");
-                    } else {
-                        penalty = 25; 
-                        details.push("Phrase Start (+25)");
-                    }
-                } else if (!isPrevClose) {
-                    penalty = 50;
-                    details.push("Waking (+50)");
-                } else if (!isNextClose) {
-                     penalty = 5;
-                     details.push("End (+5)");
+                penalty += wakeBlipPressure * 120;
+                details.push(`WakeBlip=${wakeBlipPressure.toFixed(2)} (+${(wakeBlipPressure * 120).toFixed(1)})`);
+
+                if (gapPrevMeasures > 1 && gapNextMeasures <= 1) {
+                    penalty += 18;
+                    details.push("Late Wake (+18)");
+                } else if (gapNextMeasures > 1 && gapPrevMeasures <= 1) {
+                    penalty += 5;
+                    details.push("End (+5)");
+                }
+
+                if (wakeBlipPressure * continuityStress > 0.95) {
+                    orphanTriggers.push('Short wake-up with poor continuity (isolated short blip pressure + continuity stress).');
                 }
             }
+
+            if (isChordAddition) {
+                const chordNeighbors = track.filter(n => {
+                    const eStart = getTicks(n);
+                    const eEnd = getEnd(n);
+                    return eStart <= nStart && eEnd > nStart;
+                });
+                const span = chordNeighbors.length > 0
+                    ? Math.max(...chordNeighbors.map(getMidi), nPitch) - Math.min(...chordNeighbors.map(getMidi), nPitch)
+                    : 0;
+                const allChordPitches = [...chordNeighbors.map(getMidi), nPitch].sort((a, b) => a - b);
+                const maxInnerGap = allChordPitches.length > 1
+                    ? Math.max(...allChordPitches.slice(1).map((p, idx) => p - allChordPitches[idx]))
+                    : 0;
+                const chordMean = mean(allChordPitches);
+                const centroidDrift = Math.abs(nPitch - chordMean);
+                const chordSize = allChordPitches.length;
+                const spanLimit = 12 + Math.max(0, chordSize - 2) * 3;
+                const innerGapLimit = 9;
+                const driftLimit = 7;
+
+                const spanPressure = clamp((span / Math.max(1, spanLimit)) - 1, 0, 2);
+                const spacingPressure = clamp((maxInnerGap / Math.max(1, innerGapLimit)) - 1, 0, 2);
+                const driftPressure = clamp((centroidDrift / Math.max(1, driftLimit)) - 1, 0, 2);
+                const chordPressure = (spanPressure * 0.55) + (spacingPressure * 0.25) + (driftPressure * 0.2);
+
+                penalty += chordPressure * 90;
+                details.push(`ChordP=${chordPressure.toFixed(2)} (+${(chordPressure * 90).toFixed(1)}) [span=${span}/${spanLimit},maxGap=${maxInnerGap}/${innerGapLimit},drift=${centroidDrift.toFixed(1)}/${driftLimit}]`);
+
+                if (chordPressure > 0.9) {
+                    orphanTriggers.push('Implausible chord context (span/spacing/center pressure too high).');
+                }
+            }
+
+            const prevLeapPressure = clamp(leapFromPrev / Math.max(1, adaptiveLargeLeap), 0, 3);
+            const nextLeapPressure = clamp(leapToNext / Math.max(1, adaptiveLargeLeap), 0, 3);
+            const pathDistortionPressure = prevLeapPressure * nextLeapPressure;
+            penalty += pathDistortionPressure * 20;
+            details.push(`PathP=${pathDistortionPressure.toFixed(2)} (+${(pathDistortionPressure * 20).toFixed(1)})`);
+
+            if (pathDistortionPressure > 2.3) {
+                orphanTriggers.push('Path distortion would be excessive (bidirectional leap pressure too high).');
+            }
+
+            if (upperNeighbor) {
+                const upperPitch = getMidi(upperNeighbor);
+                const upperVoiceName = getVoiceLabel(v - 1, finalPolyphony);
+                if (nPitch >= upperPitch - HARD_CROSSING_MARGIN) {
+                    orphanTriggers.push(`Near-hard crossing pressure against upper voice (${upperVoiceName}).`);
+                } else if (nPitch >= upperPitch - softCrossingMargin) {
+                    const distance = (upperPitch - HARD_CROSSING_MARGIN) - nPitch;
+                    const normalized = clamp(1 - (distance / Math.max(1, softCrossingMargin - HARD_CROSSING_MARGIN)), 0, 1);
+                    const pressurePenalty = 8 + (normalized ** 2) * 18;
+                    penalty += pressurePenalty;
+                    details.push(`Near Cross↑ (+${pressurePenalty.toFixed(1)})`);
+                }
+            }
+
+            if (lowerNeighbor) {
+                const lowerPitch = getMidi(lowerNeighbor);
+                const lowerVoiceName = getVoiceLabel(v + 1, finalPolyphony);
+                if (nPitch <= lowerPitch + HARD_CROSSING_MARGIN) {
+                    orphanTriggers.push(`Near-hard crossing pressure against lower voice (${lowerVoiceName}).`);
+                } else if (nPitch <= lowerPitch + softCrossingMargin) {
+                    const distance = nPitch - (lowerPitch + HARD_CROSSING_MARGIN);
+                    const normalized = clamp(1 - (distance / Math.max(1, softCrossingMargin - HARD_CROSSING_MARGIN)), 0, 1);
+                    const pressurePenalty = 8 + (normalized ** 2) * 18;
+                    penalty += pressurePenalty;
+                    details.push(`Near Cross↓ (+${pressurePenalty.toFixed(1)})`);
+                }
+            }
+
             cost += penalty;
+
+            if (orphanTriggers.length > 0) {
+                costLog.push({ voice: voiceName, cost: 'ORPHAN', details: orphanTriggers.join(' | ') });
+                continue;
+            }
 
             costLog.push({ voice: voiceName, cost: cost.toFixed(1), details: details.join(', ') });
 
@@ -301,7 +483,7 @@ export function distributeToVoices(notes: any[] | RawNote[], options?: Conversio
             }
         }
 
-        if (bestV !== -1) {
+        if (bestV !== -1 && minCost <= HIGH_COST_ORPHAN_THRESHOLD) {
             voiceTracks[bestV].push(note);
             assignedNotes.add(note);
             (note as any).voiceIndex = bestV;
@@ -317,7 +499,12 @@ export function distributeToVoices(notes: any[] | RawNote[], options?: Conversio
             (note as any).voiceIndex = -1;
             (note as any).explanation = {
                 phase: "3 - Orphan",
-                reason: "Collision in all voices."
+                reason: bestV === -1
+                    ? "Forced orphan: implausible continuity/crossing/chord constraints in all voices."
+                    : `Forced orphan: best continuity cost too high (${minCost.toFixed(1)}).`,
+                pathIndependent: true,
+                excludedFromContinuity: true,
+                costs: costLog
             };
         }
     }
