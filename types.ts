@@ -52,6 +52,21 @@ export interface ModalConversionOptions {
     mappings: Record<number, number>; 
 }
 
+export type AbcAccidental = '__' | '_' | '=' | '^' | '^^';
+
+export interface AbcAdditionalAccidental {
+    letter: 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'g';
+    accidental: AbcAccidental;
+}
+
+export interface AbcKeyExportOptions {
+    enabled: boolean;
+    tonicLetter: 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G';
+    tonicAccidental: AbcAccidental;
+    mode: string;
+    additionalAccidentals: AbcAdditionalAccidental[];
+}
+
 export interface MelodicInversionOptions {
     enabled: boolean;
     startMeasure: number; // 1-based
@@ -116,6 +131,7 @@ export interface ConversionOptions {
     
     // Key Signature Preference
     keySignatureSpelling: 'auto' | 'sharp' | 'flat';
+    abcKeyExport: AbcKeyExportOptions;
 }
 
 export interface VoiceAllocationMath {

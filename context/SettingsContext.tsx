@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 import { Midi } from '@tonejs/midi';
-import { ConversionOptions, TempoChangeMode, InversionMode, OutputStrategy, RhythmRule, MelodicInversionOptions, ExportRangeOptions, MidiEventType } from '../types';
+import { ConversionOptions, TempoChangeMode, InversionMode, OutputStrategy, RhythmRule, MelodicInversionOptions, ExportRangeOptions, MidiEventType, AbcKeyExportOptions } from '../types';
 import { MUSICAL_TIME_OPTIONS } from '../constants';
 
 interface SettingsState {
@@ -45,6 +45,7 @@ interface SettingsState {
     modalModeName: string;
     modalMappings: Record<number, number>;
     keySignatureSpelling: 'auto' | 'sharp' | 'flat';
+    abcKeyExport: AbcKeyExportOptions;
 
     // Filter
     eventsToDelete: Set<MidiEventType>;
@@ -81,12 +82,22 @@ interface SettingsContextType {
         setModalModeName: (val: string) => void;
         setModalMappings: (val: Record<number, number>) => void;
         setKeySignatureSpelling: (val: 'auto' | 'sharp' | 'flat') => void;
+        setAbcKeyExport: (val: AbcKeyExportOptions) => void;
         setEventsToDelete: (val: Set<MidiEventType> | ((prev: Set<MidiEventType>) => Set<MidiEventType>)) => void;
     };
     initializeDefaults: (midiData: Midi) => void;
     handleResetSettings: () => void;
     getConversionOptions: () => ConversionOptions | null;
 }
+
+
+const DEFAULT_ABC_KEY_EXPORT: AbcKeyExportOptions = {
+    enabled: false,
+    tonicLetter: 'C',
+    tonicAccidental: '=',
+    mode: 'maj',
+    additionalAccidentals: []
+};
 
 const SettingsContext = createContext<SettingsContextType | null>(null);
 
@@ -134,6 +145,7 @@ export const SettingsProvider = ({ children }: { children?: ReactNode }) => {
     const [modalModeName, setModalModeName] = useState<string>('Major');
     const [modalMappings, setModalMappings] = useState<Record<number, number>>({});
     const [keySignatureSpelling, setKeySignatureSpelling] = useState<'auto' | 'sharp' | 'flat'>('auto');
+    const [abcKeyExport, setAbcKeyExport] = useState<AbcKeyExportOptions>(DEFAULT_ABC_KEY_EXPORT);
 
     const [eventsToDelete, setEventsToDelete] = useState<Set<MidiEventType>>(new Set());
 
@@ -205,6 +217,7 @@ export const SettingsProvider = ({ children }: { children?: ReactNode }) => {
         setModalRoot(0);
         setModalModeName('Major');
         setKeySignatureSpelling('auto');
+        setAbcKeyExport(DEFAULT_ABC_KEY_EXPORT);
         setEventsToDelete(new Set());
         const resetMap: Record<number, number> = {};
         for (let i = 0; i < 12; i++) resetMap[i] = i;
@@ -267,16 +280,17 @@ export const SettingsProvider = ({ children }: { children?: ReactNode }) => {
             voiceSeparationMaxVoices: maxVoices,
             voiceSeparationDisableChords: disableChords,
             outputStrategy,
-            keySignatureSpelling
+            keySignatureSpelling,
+            abcKeyExport
         };
-    }, [newTempo, newTimeSignature, transpositionSemitones, transpositionOctaves, originalTempo, tempoChangeMode, noteTimeScale, inversionMode, melodicInversion, exportRange, primaryRhythm, secondaryRhythm, quantizeDurationMin, shiftToMeasure, detectOrnaments, isModalConversionEnabled, modalRoot, modalModeName, modalMappings, removeShortNotesThresholdIndex, pruneOverlaps, pruneThresholdIndex, softOverlapToleranceIndex, pitchBias, maxVoices, disableChords, outputStrategy, keySignatureSpelling]);
+    }, [newTempo, newTimeSignature, transpositionSemitones, transpositionOctaves, originalTempo, tempoChangeMode, noteTimeScale, inversionMode, melodicInversion, exportRange, primaryRhythm, secondaryRhythm, quantizeDurationMin, shiftToMeasure, detectOrnaments, isModalConversionEnabled, modalRoot, modalModeName, modalMappings, removeShortNotesThresholdIndex, pruneOverlaps, pruneThresholdIndex, softOverlapToleranceIndex, pitchBias, maxVoices, disableChords, outputStrategy, keySignatureSpelling, abcKeyExport]);
 
     const settingsState: SettingsState = {
         originalTempo, newTempo, originalTimeSignature, newTimeSignature, tempoChangeMode, originalDuration, newDuration, noteTimeScale,
         transpositionSemitones, transpositionOctaves, inversionMode, melodicInversion, exportRange, detectOrnaments, removeShortNotesThresholdIndex,
         primaryRhythm, secondaryRhythm, quantizeDurationMin, shiftToMeasure, pruneOverlaps, pruneThresholdIndex,
         softOverlapToleranceIndex, pitchBias, maxVoices, disableChords, outputStrategy,
-        isModalConversionEnabled, modalRoot, modalModeName, modalMappings, keySignatureSpelling, eventsToDelete
+        isModalConversionEnabled, modalRoot, modalModeName, modalMappings, keySignatureSpelling, abcKeyExport, eventsToDelete
     };
 
     const setters = {
@@ -289,7 +303,7 @@ export const SettingsProvider = ({ children }: { children?: ReactNode }) => {
         setQuantizeDurationMin, setShiftToMeasure, setDetectOrnaments, setRemoveShortNotesThresholdIndex,
         setPruneOverlaps, setPruneThresholdIndex, setSoftOverlapToleranceIndex, setPitchBias, setMaxVoices,
         setDisableChords, setOutputStrategy, setIsModalConversionEnabled, setModalRoot, setModalModeName,
-        setModalMappings, setKeySignatureSpelling, setEventsToDelete
+        setModalMappings, setKeySignatureSpelling, setAbcKeyExport, setEventsToDelete
     };
 
     return (
