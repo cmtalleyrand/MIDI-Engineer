@@ -181,7 +181,7 @@ export function getTransformedTrackDataForPianoRoll(originalMidi: Midi, trackId:
             durationTicks: n.durationTicks, 
             velocity: n.velocity, 
             name: n.name, 
-            voiceIndex: noteVoiceMap.get(n), // Undefined if something went wrong, -1 if orphan, >=0 if voice
+            voiceIndex: noteVoiceMap.get(n) ?? -1, // Explicit orphan lane fallback when unassigned
             isOrnament: (n as any).isOrnament,
             explanation: noteExplanationMap.get(n)
         })),

@@ -134,6 +134,8 @@ export interface VoiceExplanation {
     math?: VoiceAllocationMath[];
     costs?: { voice: string; cost: string | number; details: string }[];
     reason?: string;
+    pathIndependent?: boolean;
+    excludedFromContinuity?: boolean;
 }
 
 export interface PianoRollTrackData {
