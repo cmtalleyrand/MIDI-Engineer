@@ -1,3 +1,5 @@
+import type { AbcAdditionalAccidental, AbcKeyExportOptions } from '../../types';
+
 
 // Mode Intervals
 export const MODE_INTERVALS: { [key: string]: number[] } = {
@@ -64,7 +66,38 @@ export function getRootInfo(root: number, preferFlats: boolean) {
     return defaults[root as keyof typeof defaults];
 }
 
-export function analyzeScale(root: number, modeName: string, spellingPreference: 'auto' | 'sharp' | 'flat') {
+const ABC_ACCIDENTAL_SYMBOL: Record<AbcAdditionalAccidental['accidental'], string> = {
+    '__': '__',
+    '_': '_',
+    '=': '=',
+    '^': '^',
+    '^^': '^^'
+};
+
+const MODE_TO_ABC: Record<string, string> = {
+    'Major': 'maj',
+    'Natural Minor': 'min',
+    'Harmonic Minor': 'min',
+    'Dorian': 'dor',
+    'Phrygian': 'phr',
+    'Lydian': 'lyd',
+    'Mixolydian': 'mix',
+    'Locrian': 'loc',
+    'Chromatic': ''
+};
+
+function buildAbcKeyStringFromSelection(abcKeyExport: AbcKeyExportOptions): string {
+    const tonicAccidental = abcKeyExport.tonicAccidental === '=' ? '' : ABC_ACCIDENTAL_SYMBOL[abcKeyExport.tonicAccidental];
+    const tonic = `${tonicAccidental}${abcKeyExport.tonicLetter}`;
+    const mode = abcKeyExport.mode?.trim();
+    const additional = abcKeyExport.additionalAccidentals
+        .filter((item) => item.letter && item.accidental)
+        .map((item) => `${ABC_ACCIDENTAL_SYMBOL[item.accidental]}${item.letter}`);
+
+    return ['K:' + tonic, mode, ...additional].filter(Boolean).join(' ');
+}
+
+export function analyzeScale(root: number, modeName: string, spellingPreference: 'auto' | 'sharp' | 'flat', abcKeyExport?: AbcKeyExportOptions) {
     const intervals = MODE_INTERVALS[modeName] || MODE_INTERVALS['Major'];
     
     // Determine Spelling Preference (Sharp vs Flat)
@@ -95,7 +128,6 @@ export function analyzeScale(root: number, modeName: string, spellingPreference:
     }
     
     const scaleMap: Record<number, ScaleNoteMap> = {};
-    const scaleAccidentals: Record<string, string> = {}; 
 
     // Determine Starting Letter based on Preference
     const rootInfo = getRootInfo(root, preferFlats);
@@ -124,15 +156,11 @@ export function analyzeScale(root: number, modeName: string, spellingPreference:
         if (currentLetterIndex === 0 && pc === 11) offset = 1; 
         
         scaleMap[pc] = { letter: targetLetter, acc, octaveOffset: offset };
-        scaleAccidentals[targetLetter] = acc;
 
         currentLetterIndex = (currentLetterIndex + 1) % 7;
     });
 
     // Key Signature String Construction
-    const isMinor = modeName.includes('Minor') || modeName === 'Dorian' || modeName === 'Phrygian' || modeName === 'Locrian';
-    let baseKeyMode = isMinor ? 'm' : 'Maj';
-    
     let rootName = rootInfo.letterName; 
     
     // Determine accidental of the root itself for the Label
@@ -143,26 +171,13 @@ export function analyzeScale(root: number, modeName: string, spellingPreference:
     if (rootDiff === 1) rootName += '#';
     if (rootDiff === -1) rootName += 'b';
     
-    // ABC K: field requires standard accidentals (FCGDAEB sequence)
-    // We construct explicit accidentals (using ^, _, =) to force the exact scale spelling
-    // This is safer than relying on standard key signatures for exotic modes
-    const explicitMods: string[] = [];
 
-    ['C','D','E','F','G','A','B'].forEach(letter => {
-        const required = scaleAccidentals[letter] || ''; 
-        // We compare against C Major (Natural) as baseline for explicit definition
-        if (required !== '') {
-            let symbol = '';
-            if (required === '#') symbol = '^';
-            else if (required === '##') symbol = '^^';
-            else if (required === 'b') symbol = '_';
-            else if (required === 'bb') symbol = '__';
-            
-            explicitMods.push(`${symbol}${letter}`);
-        }
-    });
-    
-    const keyString = `K:${rootName}${baseKeyMode}`;
+    const resolvedMode = MODE_TO_ABC[modeName] ?? (modeName || '').toLowerCase();
+    const defaultKeyString = `K:${rootName} ${resolvedMode}`.trim();
+
+    const keyString = abcKeyExport?.enabled
+        ? buildAbcKeyStringFromSelection(abcKeyExport)
+        : defaultKeyString;
 
     return { scaleMap, keyString, preferFlats };
 }

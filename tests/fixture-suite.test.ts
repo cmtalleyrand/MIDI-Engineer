@@ -42,6 +42,7 @@ function withBaseOptions(partial: Partial<ConversionOptions> = {}): ConversionOp
     voiceSeparationDisableChords: false,
     outputStrategy: 'separate_voices',
     keySignatureSpelling: 'auto',
+    abcKeyExport: { enabled: false, tonicLetter: 'C', tonicAccidental: '=', mode: 'maj', additionalAccidentals: [] },
     ...partial
   };
 }
@@ -96,6 +97,26 @@ export function runFixtureSuite() {
 
   const abc = renderMidiToAbc(midi, 'orphan-suite.abc', withBaseOptions({ outputStrategy: 'separate_voices' }), 120);
 
+  const abcCustomPhr = renderMidiToAbc(midi, 'custom-phr.abc', withBaseOptions({
+    abcKeyExport: {
+      enabled: true,
+      tonicLetter: 'D',
+      tonicAccidental: '=',
+      mode: 'phr',
+      additionalAccidentals: [{ accidental: '^', letter: 'f' }]
+    }
+  }), 120);
+
+  const abcCustomMix = renderMidiToAbc(midi, 'custom-mix.abc', withBaseOptions({
+    abcKeyExport: {
+      enabled: true,
+      tonicLetter: 'D',
+      tonicAccidental: '=',
+      mode: 'maj',
+      additionalAccidentals: [{ accidental: '=', letter: 'c' }]
+    }
+  }), 120);
+
   const quantSplit = {
     midiDefault: resolveExportOptions(withBaseOptions(), 'midi').debug,
     abcDefault: resolveExportOptions(withBaseOptions(), 'abc').debug,
@@ -119,7 +140,11 @@ export function runFixtureSuite() {
       abcVoiceHeaders: abc.split('\n').filter(line => line.startsWith('V:')),
       abcIncludesOrphanPitch: abc.includes('E')
     },
-    quantSplit
+    quantSplit,
+    abcKeyOverrides: {
+      phr: abcCustomPhr.split('\n').find(line => line.startsWith('K:')) || '',
+      mixolydian: abcCustomMix.split('\n').find(line => line.startsWith('K:')) || ''
+    }
   };
 }
 
