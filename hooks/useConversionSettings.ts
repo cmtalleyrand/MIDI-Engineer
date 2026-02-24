@@ -39,6 +39,7 @@ export const useConversionSettings = (midiData: Midi | null) => {
     const [pitchBias, setPitchBias] = useState<number>(50); 
     const [maxVoices, setMaxVoices] = useState<number>(0); 
     const [disableChords, setDisableChords] = useState<boolean>(false);
+    const [orphanThreshold, setOrphanThreshold] = useState<number>(120);
     const [outputStrategy, setOutputStrategy] = useState<OutputStrategy>('combine');
 
     // Key & Mode
@@ -118,6 +119,7 @@ export const useConversionSettings = (midiData: Midi | null) => {
         setPitchBias(50);
         setMaxVoices(0);
         setDisableChords(false);
+        setOrphanThreshold(120);
         setOutputStrategy('combine');
         setIsModalConversionEnabled(false);
         setModalRoot(0);
@@ -181,10 +183,11 @@ export const useConversionSettings = (midiData: Midi | null) => {
             voiceSeparationPitchBias: pitchBias,
             voiceSeparationMaxVoices: maxVoices,
             voiceSeparationDisableChords: disableChords,
+            voiceSeparationOrphanThreshold: orphanThreshold,
             outputStrategy,
             keySignatureSpelling
         };
-    }, [newTempo, newTimeSignature, transpositionSemitones, transpositionOctaves, originalTempo, tempoChangeMode, noteTimeScale, inversionMode, melodicInversion, exportRange, primaryRhythm, secondaryRhythm, quantizeDurationMin, shiftToMeasure, detectOrnaments, isModalConversionEnabled, modalRoot, modalModeName, modalMappings, removeShortNotesThresholdIndex, pruneOverlaps, pruneThresholdIndex, softOverlapToleranceIndex, pitchBias, maxVoices, disableChords, outputStrategy, keySignatureSpelling, midiData]);
+    }, [newTempo, newTimeSignature, transpositionSemitones, transpositionOctaves, originalTempo, tempoChangeMode, noteTimeScale, inversionMode, melodicInversion, exportRange, primaryRhythm, secondaryRhythm, quantizeDurationMin, shiftToMeasure, detectOrnaments, isModalConversionEnabled, modalRoot, modalModeName, modalMappings, removeShortNotesThresholdIndex, pruneOverlaps, pruneThresholdIndex, softOverlapToleranceIndex, pitchBias, maxVoices, disableChords, orphanThreshold, outputStrategy, keySignatureSpelling, midiData]);
 
     return {
         settings: {
@@ -192,7 +195,7 @@ export const useConversionSettings = (midiData: Midi | null) => {
             transpositionSemitones, transpositionOctaves, noteTimeScale, inversionMode, melodicInversion, exportRange,
             primaryRhythm, secondaryRhythm, quantizationValue: primaryRhythm.enabled ? primaryRhythm.minNoteValue : 'off',
             quantizeDurationMin, shiftToMeasure, detectOrnaments, removeShortNotesThresholdIndex, pruneOverlaps,
-            pruneThresholdIndex, softOverlapToleranceIndex, pitchBias, maxVoices, disableChords, outputStrategy,
+            pruneThresholdIndex, softOverlapToleranceIndex, pitchBias, maxVoices, disableChords, orphanThreshold, outputStrategy,
             isModalConversionEnabled, modalRoot, modalModeName, modalMappings, keySignatureSpelling, eventsToDelete
         },
         setters: {
@@ -204,7 +207,7 @@ export const useConversionSettings = (midiData: Midi | null) => {
             },
             setQuantizeDurationMin, setShiftToMeasure, setDetectOrnaments, setRemoveShortNotesThresholdIndex,
             setPruneOverlaps, setPruneThresholdIndex, setSoftOverlapToleranceIndex, setPitchBias, setMaxVoices,
-            setDisableChords, setOutputStrategy, setIsModalConversionEnabled, setModalRoot, setModalModeName,
+            setDisableChords, setOrphanThreshold, setOutputStrategy, setIsModalConversionEnabled, setModalRoot, setModalModeName,
             setModalMappings, setKeySignatureSpelling, setEventsToDelete
         },
         handleResetSettings,
