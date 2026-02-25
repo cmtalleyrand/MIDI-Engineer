@@ -49,6 +49,9 @@ interface SettingsState {
 
     // Filter
     eventsToDelete: Set<MidiEventType>;
+
+    // Pitch histogram (computed from loaded MIDI, all tracks combined)
+    midiPitchHistogram: Record<number, number> | null;
 }
 
 interface SettingsContextType {
@@ -148,6 +151,7 @@ export const SettingsProvider = ({ children }: { children?: ReactNode }) => {
     const [abcKeyExport, setAbcKeyExport] = useState<AbcKeyExportOptions>(DEFAULT_ABC_KEY_EXPORT);
 
     const [eventsToDelete, setEventsToDelete] = useState<Set<MidiEventType>>(new Set());
+    const [midiPitchHistogram, setMidiPitchHistogram] = useState<Record<number, number> | null>(null);
 
     // --- Helper Logic ---
     const parseRatio = (ratioString: string) => {
@@ -167,6 +171,10 @@ export const SettingsProvider = ({ children }: { children?: ReactNode }) => {
         setNewTimeSignature({ numerator: String(tsData[0]), denominator: String(tsData[1]) });
         setOriginalDuration(midiData.duration);
         setNewDuration(midiData.duration);
+        const hist: Record<number, number> = {};
+        for (let i = 0; i < 12; i++) hist[i] = 0;
+        midiData.tracks.forEach(track => track.notes.forEach(n => { hist[n.midi % 12]++; }));
+        setMidiPitchHistogram(hist);
     }, []);
 
     // Recalculate duration when tempo/time scale changes
@@ -219,6 +227,7 @@ export const SettingsProvider = ({ children }: { children?: ReactNode }) => {
         setKeySignatureSpelling('auto');
         setAbcKeyExport(DEFAULT_ABC_KEY_EXPORT);
         setEventsToDelete(new Set());
+        setMidiPitchHistogram(null);
         const resetMap: Record<number, number> = {};
         for (let i = 0; i < 12; i++) resetMap[i] = i;
         setModalMappings(resetMap);
@@ -290,7 +299,8 @@ export const SettingsProvider = ({ children }: { children?: ReactNode }) => {
         transpositionSemitones, transpositionOctaves, inversionMode, melodicInversion, exportRange, detectOrnaments, removeShortNotesThresholdIndex,
         primaryRhythm, secondaryRhythm, quantizeDurationMin, shiftToMeasure, pruneOverlaps, pruneThresholdIndex,
         softOverlapToleranceIndex, pitchBias, maxVoices, disableChords, outputStrategy,
-        isModalConversionEnabled, modalRoot, modalModeName, modalMappings, keySignatureSpelling, abcKeyExport, eventsToDelete
+        isModalConversionEnabled, modalRoot, modalModeName, modalMappings, keySignatureSpelling, abcKeyExport, eventsToDelete,
+        midiPitchHistogram
     };
 
     const setters = {
