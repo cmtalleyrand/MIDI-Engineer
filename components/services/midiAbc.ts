@@ -2,7 +2,7 @@
 import { Midi } from '@tonejs/midi';
 import { ConversionOptions, MidiEventType } from '../../types';
 import { getQuantizationTickValue } from './midiTransform';
-import { copyAndTransformTrackEvents, logExportResolution, resolveExportOptions } from './midiPipeline';
+import { copyAndTransformTrackEvents, copyHeaderEvents, logExportResolution, resolveExportOptions } from './midiPipeline';
 import { distributeToVoices, getVoiceLabel } from './midiVoices';
 import { analyzeScale } from './musicTheory';
 import { 
@@ -121,10 +121,9 @@ export function renderMidiToAbc(midi: Midi, fileName: string, options: Conversio
 export async function exportTracksToAbc(originalMidi: Midi, trackIds: number[], newFileName: string, eventsToDelete: Set<MidiEventType>, options: ConversionOptions): Promise<void> {
     const { options: resolvedOptions, debug } = resolveExportOptions(options, 'abc');
     logExportResolution(debug);
-    const newMidi = new Midi(); 
+    const newMidi = new Midi();
     if (originalMidi.header.name) newMidi.header.name = originalMidi.header.name;
-    newMidi.header.setTempo(resolvedOptions.tempo); 
-    newMidi.header.timeSignatures = [{ ticks: 0, timeSignature: [resolvedOptions.timeSignature.numerator, resolvedOptions.timeSignature.denominator] }];
+    copyHeaderEvents(originalMidi.header, newMidi.header, resolvedOptions);
     
     trackIds.forEach(id => { 
         const t = originalMidi.tracks[id]; 

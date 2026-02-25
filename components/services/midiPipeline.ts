@@ -139,6 +139,101 @@ function dedupeNotesAndReport(notes: any[], trackName: string, timeSignature: Co
     return deduped;
 }
 
+/**
+ * Copies all tempo and time signature events from the original MIDI header to the destination,
+ * adjusting tick positions for PPQ normalization, time scaling, and export range cropping.
+ * Tempo BPM values are scaled proportionally if the user changed the base tempo.
+ */
+export function copyHeaderEvents(
+    originalHeader: Midi['header'],
+    destHeader: Midi['header'],
+    options: ConversionOptions
+): void {
+    const ppqRatio = destHeader.ppq / originalHeader.ppq;
+
+    let timeScale = options.noteTimeScale;
+    if (options.tempoChangeMode === 'time' && options.originalTempo > 0 && options.tempo > 0) {
+        timeScale *= options.originalTempo / options.tempo;
+    }
+
+    const tempoRatio = (options.originalTempo > 0) ? options.tempo / options.originalTempo : 1;
+
+    const cropEnabled = options.exportRange.enabled;
+    let cropStartTick = 0;
+    let cropEndTick = Infinity;
+    if (cropEnabled) {
+        const ticksPerMeasure = destHeader.ppq * 4 * (options.timeSignature.numerator / options.timeSignature.denominator);
+        cropStartTick = (options.exportRange.startMeasure - 1) * ticksPerMeasure;
+        cropEndTick = options.exportRange.endMeasure * ticksPerMeasure;
+    }
+
+    // --- Tempo events ---
+    const transformedTempos = originalHeader.tempos
+        .slice()
+        .sort((a, b) => a.ticks - b.ticks)
+        .map(t => ({
+            ticks: Math.round(t.ticks * ppqRatio * timeScale),
+            bpm: t.bpm * tempoRatio
+        }));
+
+    if (cropEnabled) {
+        // Find the active tempo at crop start (last tempo event at or before cropStartTick)
+        let activeBpm = options.tempo;
+        for (const t of transformedTempos) {
+            if (t.ticks <= cropStartTick) activeBpm = t.bpm;
+            else break;
+        }
+        destHeader.tempos = [{ ticks: 0, bpm: activeBpm }];
+        for (const t of transformedTempos) {
+            if (t.ticks > cropStartTick && t.ticks < cropEndTick) {
+                destHeader.tempos.push({ ticks: t.ticks - cropStartTick, bpm: t.bpm });
+            }
+        }
+    } else {
+        destHeader.tempos = transformedTempos;
+    }
+
+    // Ensure a tempo event exists at tick 0
+    if (destHeader.tempos.length === 0 || destHeader.tempos[0].ticks !== 0) {
+        destHeader.tempos.unshift({ ticks: 0, bpm: options.tempo });
+    }
+
+    // --- Time signature events ---
+    const transformedTS = originalHeader.timeSignatures
+        .slice()
+        .sort((a, b) => a.ticks - b.ticks)
+        .map((ts, i) => ({
+            ticks: Math.round(ts.ticks * ppqRatio * timeScale),
+            // First event uses user's time signature (they may have intentionally changed it);
+            // subsequent events preserve the original composition's meter changes
+            timeSignature: (i === 0)
+                ? [options.timeSignature.numerator, options.timeSignature.denominator] as [number, number]
+                : [...ts.timeSignature] as [number, number]
+        }));
+
+    if (cropEnabled) {
+        // Find the active time signature at crop start
+        let activeTS: [number, number] = [options.timeSignature.numerator, options.timeSignature.denominator];
+        for (const ts of transformedTS) {
+            if (ts.ticks <= cropStartTick) activeTS = ts.timeSignature;
+            else break;
+        }
+        destHeader.timeSignatures = [{ ticks: 0, timeSignature: activeTS }];
+        for (const ts of transformedTS) {
+            if (ts.ticks > cropStartTick && ts.ticks < cropEndTick) {
+                destHeader.timeSignatures.push({ ticks: ts.ticks - cropStartTick, timeSignature: ts.timeSignature });
+            }
+        }
+    } else {
+        destHeader.timeSignatures = transformedTS;
+    }
+
+    if (destHeader.timeSignatures.length === 0) {
+        destHeader.timeSignatures = [{ ticks: 0, timeSignature: [options.timeSignature.numerator, options.timeSignature.denominator] }];
+    }
+}
+}
+
 export function copyAndTransformTrackEvents(
     sourceTrack: Track, 
     destinationTrack: Track, 
@@ -267,12 +362,11 @@ export function copyAndTransformTrackEvents(
 
 export function createPreviewMidi(originalMidi: Midi, trackId: number, eventsToDelete: Set<MidiEventType>, options: ConversionOptions): Midi {
     if (trackId < 0 || trackId >= originalMidi.tracks.length) throw new Error(`Track ${trackId} not found.`);
-    
+
     // Create fresh Midi (defaults to 480 PPQ)
     const newMidi = new Midi();
     if (originalMidi.header.name) newMidi.header.name = originalMidi.header.name;
-    newMidi.header.setTempo(options.tempo);
-    newMidi.header.timeSignatures = [{ ticks: 0, timeSignature: [options.timeSignature.numerator, options.timeSignature.denominator] }];
+    copyHeaderEvents(originalMidi.header, newMidi.header, options);
 
     const originalTrack = originalMidi.tracks[trackId];
     const newTrack = newMidi.addTrack();
@@ -286,8 +380,7 @@ export function createPreviewMidi(originalMidi: Midi, trackId: number, eventsToD
 
 export function getTransformedTrackDataForPianoRoll(originalMidi: Midi, trackId: number, options: ConversionOptions): PianoRollTrackData {
     const newMidi = new Midi();
-    newMidi.header.setTempo(options.tempo);
-    newMidi.header.timeSignatures = [{ ticks: 0, timeSignature: [options.timeSignature.numerator, options.timeSignature.denominator] }];
+    copyHeaderEvents(originalMidi.header, newMidi.header, options);
 
     const originalTrack = originalMidi.tracks[trackId];
     const newTrack = newMidi.addTrack();
@@ -341,8 +434,7 @@ export async function combineAndDownload(originalMidi: Midi, trackIds: number[],
     
     const newMidi = new Midi();
     if (originalMidi.header.name) newMidi.header.name = originalMidi.header.name;
-    newMidi.header.setTempo(resolvedOptions.tempo);
-    newMidi.header.timeSignatures = [{ ticks: 0, timeSignature: [resolvedOptions.timeSignature.numerator, resolvedOptions.timeSignature.denominator] }];
+    copyHeaderEvents(originalMidi.header, newMidi.header, resolvedOptions);
 
     const selectedTrackIds = new Set(trackIds);
 
