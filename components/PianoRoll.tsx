@@ -77,6 +77,7 @@ const PianoRoll: React.FC<PianoRollProps> = ({ trackData }) => {
   const [showVoices, setShowVoices] = useState(false);
   const [showQuantizerRationale, setShowQuantizerRationale] = useState(false);
   const [selectedNote, setSelectedNote] = useState<any | null>(null);
+  const noteDetailsEnabled = showVoices || showQuantizerRationale;
   
   // Calculate max voice count for labeling
   const maxVoiceIdx = notes.reduce((max, n) => Math.max(max, n.voiceIndex ?? -1), -1);
@@ -106,6 +107,12 @@ const PianoRoll: React.FC<PianoRollProps> = ({ trackData }) => {
         }
     }
   };
+
+  useEffect(() => {
+    if (!noteDetailsEnabled) {
+      setSelectedNote(null);
+    }
+  }, [noteDetailsEnabled]);
 
   if (!notes || notes.length === 0) {
     return <div className="flex items-center justify-center h-full text-gray-400">No notes to display.</div>;
@@ -426,7 +433,7 @@ const PianoRoll: React.FC<PianoRollProps> = ({ trackData }) => {
                 ))}
 
                 {/* Notes */}
-                {notes.map((note, idx) => {
+                {[...notes].sort((a, b) => Number(a.isOrnament) - Number(b.isOrnament)).map((note, idx) => {
                     // Determine Color
                     let noteColor = '#14b8a6'; // Default Teal
                     let strokeColor = '#0f766e';
@@ -435,8 +442,10 @@ const PianoRoll: React.FC<PianoRollProps> = ({ trackData }) => {
                     const isSelected = selectedNote === note;
 
                     if (note.isOrnament) {
-                        opacity = 0.6; // Fade out ornaments
-                        strokeColor = 'rgba(255,255,255,0.3)';
+                        noteColor = '#f59e0b'; // Highlight ornaments with amber
+                        opacity = 0.95;
+                        strokeColor = '#fde68a';
+                        dashArray = '3,2';
                     }
 
                     if (showVoices && note.voiceIndex !== undefined) {
@@ -468,9 +477,10 @@ const PianoRoll: React.FC<PianoRollProps> = ({ trackData }) => {
                             stroke={isSelected ? '#ffffff' : strokeColor}
                             strokeWidth={isSelected ? 2 : (note.voiceIndex === -1 && showVoices ? 2 : 1)}
                             strokeDasharray={dashArray}
-                            className="hover:opacity-80 transition-opacity cursor-pointer"
+                            className={`hover:opacity-80 transition-opacity ${noteDetailsEnabled ? 'cursor-pointer' : 'cursor-default'}`}
                             onClick={(e) => {
                                 e.stopPropagation();
+                                if (!noteDetailsEnabled) return;
                                 setSelectedNote(note);
                             }}
                         >
