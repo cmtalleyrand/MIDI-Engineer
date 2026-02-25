@@ -222,5 +222,9 @@
   "abcKeyOverrides": {
     "phr": "K:D phr ^f",
     "mixolydian": "K:D maj =c"
+  },
+  "modalConversion": {
+    "direct": [60, 62, 63, 65, 67, 69, 70],
+    "viaGetTransformedNotes": [60, 62, 63, 65, 67, 69, 70]
   }
 }

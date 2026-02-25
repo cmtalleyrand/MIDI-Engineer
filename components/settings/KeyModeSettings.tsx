@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { CHROMATIC_NAMES } from '../services/musicTheory';
 import { useSettings } from '../../context/SettingsContext';
 
@@ -45,13 +45,23 @@ const getNoteName = (root: number, interval: number) => CHROMATIC_NAMES[(root + 
 export default function KeyModeSettings() {
     const { settings, setters } = useSettings();
     const {
-        modalRoot, modalModeName, isModalConversionEnabled, modalMappings, keySignatureSpelling, abcKeyExport
+        modalRoot, modalModeName, isModalConversionEnabled, modalMappings, keySignatureSpelling, abcKeyExport, midiPitchHistogram
     } = settings;
     const {
         setModalRoot, setModalModeName, setIsModalConversionEnabled, setModalMappings, setKeySignatureSpelling, setAbcKeyExport
     } = setters;
 
     const modeIntervals = MODES[modalModeName as keyof typeof MODES] || MODES['Major'];
+
+    const outputHistogram = useMemo(() => {
+        if (!midiPitchHistogram) return null;
+        const out: Record<number, number> = {};
+        for (let i = 0; i < 12; i++) {
+            const target = modalMappings[i] ?? i;
+            out[target] = (out[target] || 0) + (midiPitchHistogram[(modalRoot + i) % 12] || 0);
+        }
+        return out;
+    }, [midiPitchHistogram, modalRoot, modalMappings]);
 
     return (
         <div className="border-t border-gray-medium pt-4">
@@ -213,13 +223,26 @@ export default function KeyModeSettings() {
                     <div className="mt-4 overflow-x-auto animate-fade-in">
                         <table className="w-full text-sm text-left text-gray-400">
                             <thead>
-                                <tr><th className="px-4 py-2">Source</th><th></th><th className="px-4 py-2">Target</th></tr>
+                                <tr>
+                                    <th className="px-4 py-2">Source</th>
+                                    {midiPitchHistogram && <th className="px-2 py-2 text-xs text-gray-500 text-right">In</th>}
+                                    <th></th>
+                                    <th className="px-4 py-2">Target</th>
+                                    {midiPitchHistogram && <th className="px-2 py-2 text-xs text-gray-500 text-right">Out</th>}
+                                </tr>
                             </thead>
                             <tbody>
                                 {Array.from({ length: 12 }).map((_, i) => (
                                     <tr key={i} className={`border-b border-gray-700 ${modeIntervals.includes(i) ? 'bg-gray-800/50' : ''}`}>
                                         <td className="px-4 py-2 font-medium">{getNoteName(modalRoot, i)} <span className="text-xs text-gray-500">({getDegreeLabel(i, modeIntervals)})</span></td>
-                                        <td className="text-center">→</td>
+                                        {midiPitchHistogram && (
+                                            <td className="px-2 py-2 text-right">
+                                                <span className={`text-xs font-mono ${(midiPitchHistogram[(modalRoot + i) % 12] || 0) > 0 ? 'text-blue-400' : 'text-gray-600'}`}>
+                                                    {midiPitchHistogram[(modalRoot + i) % 12] || 0}
+                                                </span>
+                                            </td>
+                                        )}
+                                        <td className="text-center text-gray-500">→</td>
                                         <td className="px-4 py-2">
                                             <select
                                                 value={modalMappings[i] ?? i}
@@ -231,10 +254,30 @@ export default function KeyModeSettings() {
                                                 ))}
                                             </select>
                                         </td>
+                                        {midiPitchHistogram && outputHistogram && (
+                                            <td className="px-2 py-2 text-right">
+                                                <span className={`text-xs font-mono ${(outputHistogram[modalMappings[i] ?? i] || 0) > 0 ? 'text-green-400' : 'text-gray-600'}`}>
+                                                    {outputHistogram[modalMappings[i] ?? i] || 0}
+                                                </span>
+                                            </td>
+                                        )}
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
+                        {midiPitchHistogram && (
+                            <div className="mt-3 px-2 text-xs text-gray-500">
+                                {(() => {
+                                    const moved = Array.from({ length: 12 }, (_, i) => i)
+                                        .filter(i => (modalMappings[i] ?? i) !== i)
+                                        .reduce((sum, i) => sum + (midiPitchHistogram[(modalRoot + i) % 12] || 0), 0);
+                                    const total = Object.values(midiPitchHistogram).reduce((a, b) => a + b, 0);
+                                    return moved > 0
+                                        ? <span className="text-yellow-500">{moved} of {total} notes will be remapped</span>
+                                        : <span>No notes remapped (all mappings are identity)</span>;
+                                })()}
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

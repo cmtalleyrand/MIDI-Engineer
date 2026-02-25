@@ -299,7 +299,10 @@ export function getTransformedNotes(notes: any[], options: ConversionOptions, pp
     // 5. Melodic Inversion (New)
     processed = performMelodicInversion(processed, options.melodicInversion, ppq, options.timeSignature);
 
-    // 6. Range Cropping
+    // 6. Modal Conversion
+    processed = performModalConversion(processed, options);
+
+    // 7. Range Cropping
     processed = cropToRange(processed, options, ppq);
 
     return processed;

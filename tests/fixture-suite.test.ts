@@ -6,6 +6,7 @@ import { detectAndTagOrnaments } from '../components/services/midiCore';
 import { distributeToVoices } from '../components/services/midiVoices';
 import { resolveExportOptions } from '../components/services/midiPipeline';
 import { renderMidiToAbc } from '../components/services/midiAbc';
+import { performModalConversion, getTransformedNotes } from '../components/services/midiTransform';
 
 const PPQ = 480;
 const primarySimple: RhythmRule = { enabled: true, family: 'Simple', minNoteValue: '1/16' };
@@ -117,6 +118,17 @@ export function runFixtureSuite() {
     }
   }), 120);
 
+  // C Major scale → C Dorian: E(interval 4)→Eb(3), B(interval 11)→Bb(10)
+  const modalInput = [
+    note(60, 0, 480), note(62, 480, 480), note(64, 960, 480), note(65, 1440, 480),
+    note(67, 1920, 480), note(69, 2400, 480), note(71, 2880, 480)
+  ];
+  const dorianOpts = withBaseOptions({
+    modalConversion: { enabled: true, root: 0, modeName: 'Dorian', mappings: { 4: 3, 11: 10 } }
+  });
+  const modalDirect = performModalConversion(modalInput, dorianOpts).map(n => n.midi);
+  const modalViaTransform = getTransformedNotes(modalInput, dorianOpts, PPQ).map(n => n.midi);
+
   const quantSplit = {
     midiDefault: resolveExportOptions(withBaseOptions(), 'midi').debug,
     abcDefault: resolveExportOptions(withBaseOptions(), 'abc').debug,
@@ -144,7 +156,8 @@ export function runFixtureSuite() {
     abcKeyOverrides: {
       phr: abcCustomPhr.split('\n').find(line => line.startsWith('K:')) || '',
       mixolydian: abcCustomMix.split('\n').find(line => line.startsWith('K:')) || ''
-    }
+    },
+    modalConversion: { direct: modalDirect, viaGetTransformedNotes: modalViaTransform }
   };
 }
 
