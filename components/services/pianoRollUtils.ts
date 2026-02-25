@@ -1,7 +1,11 @@
+import type { PianoRollTrackData } from '../../types';
+
 export function canSelectPianoRollNote(showVoices: boolean, showQuantizerLogic: boolean): boolean {
   return showVoices || showQuantizerLogic;
 }
 
-export function sortNotesForPianoRollRendering<T extends { isOrnament?: boolean }>(notes: T[]): T[] {
-  return [...notes].sort((a, b) => Number(!!a.isOrnament) - Number(!!b.isOrnament));
+type PianoRollNote = PianoRollTrackData['notes'][number];
+
+export function sortNotesForPianoRollRendering(notes: PianoRollNote[]): PianoRollNote[] {
+  return [...notes].sort((a, b) => Number(Boolean(a.isOrnament)) - Number(Boolean(b.isOrnament)));
 }

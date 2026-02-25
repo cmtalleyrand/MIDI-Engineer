@@ -438,7 +438,7 @@ const PianoRoll: React.FC<PianoRollProps> = ({ trackData }) => {
                 ))}
 
                 {/* Notes */}
-                {sortNotesForPianoRollRendering<(typeof notes)[number]>(notes).map((note, idx) => {
+                {sortNotesForPianoRollRendering(notes).map((note, idx) => {
                     // Determine Color
                     let noteColor = '#14b8a6'; // Default Teal
                     let strokeColor = '#0f766e';
