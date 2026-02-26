@@ -4,6 +4,19 @@ Purpose: persistent high-detail project memory for future AI sessions and mainta
 
 ## [Unreleased]
 
+### Changed - Fixture test harness made more diagnosable
+
+- Split the single fixture snapshot into thematic snapshot files under `tests/fixtures/` (`shadow-quantization`, `ornaments`, `voice-orphan-behavior`, `quantization-policy`, `abc-key-overrides`).
+- Updated `tests/run-fixture-suite.ts` to validate each themed snapshot independently.
+- Added explicit invariant assertions for orphan behavior and default quantization policy, so failures are more self-describing than a broad snapshot mismatch.
+- Updated `docs/TESTING.md` to record these implemented P0 hardening improvements.
+
+### Added - Testing assessment and contributor test guidance
+
+- Added `docs/TESTING.md` with a structured assessment of the current fixture snapshot test harness.
+- Documented strengths, correctness caveats, coverage gaps, and a prioritized P0/P1/P2/P3 improvement roadmap.
+- Updated `README.md` to include a dedicated Testing section and a pointer to `docs/TESTING.md` in the documentation map.
+
 ### Fixed - Ornament detector correctness and spec alignment
 
 - **Turn span bug**: span was computed as `getEnd(e) - a.ticks`, including the sustained

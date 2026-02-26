@@ -1,0 +1,66 @@
+{
+  "grace": [
+    {
+      "midi": 61,
+      "isOrnament": true
+    },
+    {
+      "midi": 60,
+      "isOrnament": false
+    }
+  ],
+  "mordent": [
+    {
+      "midi": 60,
+      "isOrnament": false
+    },
+    {
+      "midi": 62,
+      "isOrnament": true
+    },
+    {
+      "midi": 60,
+      "isOrnament": false
+    }
+  ],
+  "turn": [
+    {
+      "midi": 62,
+      "isOrnament": false
+    },
+    {
+      "midi": 60,
+      "isOrnament": false
+    },
+    {
+      "midi": 58,
+      "isOrnament": true
+    },
+    {
+      "midi": 60,
+      "isOrnament": false
+    }
+  ],
+  "trill": [
+    {
+      "midi": 61,
+      "isOrnament": true
+    },
+    {
+      "midi": 60,
+      "isOrnament": true
+    },
+    {
+      "midi": 61,
+      "isOrnament": true
+    },
+    {
+      "midi": 60,
+      "isOrnament": true
+    },
+    {
+      "midi": 60,
+      "isOrnament": false
+    }
+  ]
+}

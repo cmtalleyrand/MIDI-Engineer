@@ -1,0 +1,13 @@
+{
+  "voiceSizes": [
+    2
+  ],
+  "orphanCount": 1,
+  "orphanTicks": [
+    240
+  ],
+  "abcVoiceHeaders": [
+    "V:1_1 name=\"Melody\""
+  ],
+  "abcIncludesOrphanPitch": true
+}

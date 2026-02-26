@@ -58,6 +58,7 @@ This split exists because notation readability and performance-preserving MIDI o
 - `PROJECT_PLAN.md`: intentionally blank by default; populate only on explicit planning request.
 - `CHANGE_LOG.md`: high-detail change memory for future AI sessions.
 - `docs/ARCHITECTURE_CURRENT.md`: implementation-accurate architecture snapshot.
+- `docs/TESTING.md`: current automated-test assessment, coverage gaps, and roadmap.
 
 ## Development
 
@@ -67,6 +68,16 @@ npm run dev
 npm run build
 npm run preview
 ```
+
+
+## Testing
+
+```bash
+npm test
+npm run build
+```
+
+See `docs/TESTING.md` for coverage analysis, known gaps, and a prioritized test-improvement roadmap.
 
 ## GitHub Pages Deployment
 

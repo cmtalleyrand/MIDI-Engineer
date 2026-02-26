@@ -1,0 +1,32 @@
+{
+  "midiDefault": {
+    "target": "midi",
+    "quantizationPath": "bypass",
+    "explicitUserQuantization": false,
+    "quantizationValue": "off",
+    "quantizeDurationMin": "off",
+    "primaryRhythmEnabled": false,
+    "primaryRhythmValue": "1/16",
+    "secondaryRhythmEnabled": false
+  },
+  "abcDefault": {
+    "target": "abc",
+    "quantizationPath": "resolved_shadow",
+    "explicitUserQuantization": false,
+    "quantizationValue": "1/16",
+    "quantizeDurationMin": "off",
+    "primaryRhythmEnabled": true,
+    "primaryRhythmValue": "1/16",
+    "secondaryRhythmEnabled": false
+  },
+  "explicitQuant": {
+    "target": "midi",
+    "quantizationPath": "resolved_shadow",
+    "explicitUserQuantization": true,
+    "quantizationValue": "1/8",
+    "quantizeDurationMin": "off",
+    "primaryRhythmEnabled": true,
+    "primaryRhythmValue": "1/8",
+    "secondaryRhythmEnabled": true
+  }
+}

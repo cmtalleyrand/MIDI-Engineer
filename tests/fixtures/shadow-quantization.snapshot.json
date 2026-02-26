@@ -1,0 +1,111 @@
+{
+  "tripletOutlier": [
+    {
+      "midi": 60,
+      "ticks": 0,
+      "selectedFamily": "Simple",
+      "conflictTypes": []
+    },
+    {
+      "midi": 62,
+      "ticks": 160,
+      "selectedFamily": "Triple",
+      "conflictTypes": [
+        "type3_contextual_rhythm"
+      ]
+    },
+    {
+      "midi": 64,
+      "ticks": 240,
+      "selectedFamily": "Simple",
+      "conflictTypes": [
+        "type2_polyphony_blip"
+      ]
+    },
+    {
+      "midi": 65,
+      "ticks": 320,
+      "selectedFamily": "Triple",
+      "conflictTypes": [
+        "type3_contextual_rhythm"
+      ]
+    },
+    {
+      "midi": 67,
+      "ticks": 480,
+      "selectedFamily": "Simple",
+      "conflictTypes": [
+        "type2_polyphony_blip"
+      ]
+    }
+  ],
+  "contextualTriplet": [
+    {
+      "midi": 70,
+      "ticks": 0,
+      "selectedFamily": "Triple"
+    },
+    {
+      "midi": 72,
+      "ticks": 160,
+      "selectedFamily": "Triple"
+    },
+    {
+      "midi": 74,
+      "ticks": 360,
+      "selectedFamily": "Simple"
+    },
+    {
+      "midi": 76,
+      "ticks": 480,
+      "selectedFamily": "Triple"
+    }
+  ],
+  "overlapConflict": [
+    {
+      "midi": 60,
+      "ticks": 0,
+      "durationTicks": 360,
+      "conflictTypes": [],
+      "accommodationApplied": null
+    },
+    {
+      "midi": 60,
+      "ticks": 240,
+      "durationTicks": 240,
+      "conflictTypes": [
+        "type1_unison_overlap",
+        "type2_polyphony_blip"
+      ],
+      "accommodationApplied": {
+        "shortenedFrom": 360,
+        "shortenedTo": 240,
+        "reason": "Accommodation-first unison overlap shortening applied to candidate note."
+      }
+    }
+  ],
+  "densityBlip": [
+    {
+      "midi": 60,
+      "ticks": 0,
+      "durationTicks": 480,
+      "conflictTypes": []
+    },
+    {
+      "midi": 64,
+      "ticks": 240,
+      "durationTicks": 120,
+      "conflictTypes": [
+        "type2_polyphony_blip"
+      ]
+    },
+    {
+      "midi": 67,
+      "ticks": 480,
+      "durationTicks": 480,
+      "conflictTypes": [
+        "type2_polyphony_blip"
+      ]
+    }
+  ]
+}
