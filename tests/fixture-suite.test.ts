@@ -42,6 +42,7 @@ function withBaseOptions(partial: Partial<ConversionOptions> = {}): ConversionOp
     voiceSeparationDisableChords: false,
     outputStrategy: 'separate_voices',
     keySignatureSpelling: 'auto',
+    abcKeyExport: { enabled: false, tonicLetter: 'C', tonicAccidental: '=', mode: 'maj', additionalAccidentals: [] },
     ...partial
   };
 }
@@ -96,6 +97,45 @@ export function runFixtureSuite() {
 
   const abc = renderMidiToAbc(midi, 'orphan-suite.abc', withBaseOptions({ outputStrategy: 'separate_voices' }), 120);
 
+  const abcCustomPhr = renderMidiToAbc(midi, 'custom-phr.abc', withBaseOptions({
+    abcKeyExport: {
+      enabled: true,
+      tonicLetter: 'D',
+      tonicAccidental: '=',
+      mode: 'phr',
+      additionalAccidentals: [{ accidental: '^', letter: 'f' }]
+    }
+  }), 120);
+
+  const abcCustomMix = renderMidiToAbc(midi, 'custom-mix.abc', withBaseOptions({
+    abcKeyExport: {
+      enabled: true,
+      tonicLetter: 'D',
+      tonicAccidental: '=',
+      mode: 'maj',
+      additionalAccidentals: [{ accidental: '=', letter: 'c' }]
+    }
+  }), 120);
+
+  const duplicateMidi = new Midi();
+  duplicateMidi.header.setTempo(91);
+  duplicateMidi.header.timeSignatures = [{ ticks: 0, timeSignature: [4, 4] }];
+  const dupTrack = duplicateMidi.addTrack();
+  dupTrack.name = 'Dup';
+  dupTrack.addNote({ midi: 71, ticks: 0, durationTicks: 240, velocity: 0.8 });
+  dupTrack.addNote({ midi: 71, ticks: 120, durationTicks: 240, velocity: 0.8 });
+  const duplicateAbc = renderMidiToAbc(duplicateMidi, 'duplicate.abc', withBaseOptions({
+    outputStrategy: 'combine',
+    modalConversion: { enabled: false, root: 10, modeName: 'Natural Minor', mappings: {} },
+    abcKeyExport: {
+      enabled: true,
+      tonicLetter: 'B',
+      tonicAccidental: '_',
+      mode: 'min',
+      additionalAccidentals: [{ accidental: '=', letter: 'A' }, { accidental: '=', letter: 'E' }]
+    }
+  }), 120);
+
   const quantSplit = {
     midiDefault: resolveExportOptions(withBaseOptions(), 'midi').debug,
     abcDefault: resolveExportOptions(withBaseOptions(), 'abc').debug,
@@ -119,7 +159,15 @@ export function runFixtureSuite() {
       abcVoiceHeaders: abc.split('\n').filter(line => line.startsWith('V:')),
       abcIncludesOrphanPitch: abc.includes('E')
     },
-    quantSplit
+    quantSplit,
+    abcKeyOverrides: {
+      phr: abcCustomPhr.split('\n').find(line => line.startsWith('K:')) || '',
+      mixolydian: abcCustomMix.split('\n').find(line => line.startsWith('K:')) || ''
+    },
+    duplicatePitchHandling: {
+      keyLine: duplicateAbc.split('\n').find(line => line.startsWith('K:')) || '',
+      containsDuplicatedChordPitch: duplicateAbc.includes('[B-B]')
+    }
   };
 }
 
