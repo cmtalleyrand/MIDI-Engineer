@@ -10,13 +10,15 @@ import TrackAnalysis from './components/TrackAnalysis';
 import Notification from './components/Notification';
 import ConversionSettings from './components/ConversionSettings';
 import ActionPanel from './components/ActionPanel';
+import DrumGeneratorModal from './components/DrumGeneratorModal';
 import { DevicePhoneMobileIcon, GlobeAltIcon } from './components/Icons';
 
 import { useMidiAppController } from './hooks/useMidiAppController';
-import { SettingsProvider } from './context/SettingsContext';
+import { SettingsProvider, useSettings } from './context/SettingsContext';
 
 function MidiAppContent() {
   const { project, playback, ui, computed, handlers } = useMidiAppController();
+  const { settings } = useSettings();
 
   const activeMessage = ui.errorMessage || project.loadError || playback.playbackError || ui.successMessage;
   const activeMessageType = (ui.errorMessage || project.loadError || playback.playbackError) ? 'error' : 'success';
@@ -70,10 +72,11 @@ function MidiAppContent() {
                   </div>
               )}
 
-              <ActionPanel 
+              <ActionPanel
                  onCombine={handlers.handleCombine}
                  onExportAbc={handlers.handleExportAbc}
                  onAnalyzeSelection={handlers.handleAnalyzeSelection}
+                 onOpenDrumGenerator={handlers.handleOpenDrumGenerator}
                  isCombining={ui.uiState === AppState.COMBINING}
                  isExportingAbc={ui.isExportingAbc}
                  canProcess={project.selectedTracks.size >= 1}
@@ -104,6 +107,21 @@ function MidiAppContent() {
         >
            <TrackAnalysis data={ui.analysisData} />
         </Modal>
+      )}
+
+      {ui.isDrumGeneratorVisible && project.midiData && (
+        <DrumGeneratorModal
+          isOpen={ui.isDrumGeneratorVisible}
+          onClose={() => ui.setIsDrumGeneratorVisible(false)}
+          midiData={project.midiData}
+          selectedTracks={project.selectedTracks}
+          timeSignature={{
+            numerator: parseInt(settings.newTimeSignature.numerator, 10) || 4,
+            denominator: parseInt(settings.newTimeSignature.denominator, 10) || 4,
+          }}
+          tempo={parseInt(settings.newTempo, 10) || 120}
+          fileName={project.fileName}
+        />
       )}
 
       {ui.showInstallHelp && (
