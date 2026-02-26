@@ -4,7 +4,7 @@ import type { ConversionOptions, RawNote, RhythmRule } from '../types';
 import { applyShadowQuantization } from '../components/services/shadowQuantizer';
 import { detectAndTagOrnaments } from '../components/services/midiCore';
 import { distributeToVoices } from '../components/services/midiVoices';
-import { resolveExportOptions } from '../components/services/midiPipeline';
+import { createPreviewMidi, getTransformedTrackDataForPianoRoll, resolveExportOptions } from '../components/services/midiPipeline';
 import { renderMidiToAbc } from '../components/services/midiAbc';
 import { performModalConversion, getTransformedNotes } from '../components/services/midiTransform';
 
@@ -129,6 +129,42 @@ export function runFixtureSuite() {
   const modalDirect = performModalConversion(modalInput, dorianOpts).map(n => n.midi);
   const modalViaTransform = getTransformedNotes(modalInput, dorianOpts, PPQ).map(n => n.midi);
 
+
+
+  const timelineMidi = new Midi();
+  timelineMidi.header.tempos = [
+    { ticks: 0, bpm: 120 },
+    { ticks: 960, bpm: 90 },
+    { ticks: 1920, bpm: 140 }
+  ];
+  timelineMidi.header.timeSignatures = [
+    { ticks: 0, timeSignature: [4, 4] },
+    { ticks: 960, timeSignature: [3, 4] },
+    { ticks: 1920, timeSignature: [5, 8] }
+  ];
+  const timelineTrack = timelineMidi.addTrack();
+  timelineTrack.addNote({ midi: 60, ticks: 0, durationTicks: 240, velocity: 0.8 });
+  timelineTrack.addNote({ midi: 64, ticks: 960, durationTicks: 240, velocity: 0.8 });
+  timelineTrack.addNote({ midi: 67, ticks: 1920, durationTicks: 240, velocity: 0.8 });
+
+  const timelinePreview = createPreviewMidi(
+    timelineMidi,
+    0,
+    new Set(),
+    withBaseOptions({
+      tempo: 100,
+      noteTimeScale: 2,
+      exportRange: { enabled: true, startMeasure: 2, endMeasure: 3 },
+      outputStrategy: 'separate_tracks'
+    })
+  );
+
+  const timelinePianoRoll = getTransformedTrackDataForPianoRoll(
+    timelineMidi,
+    0,
+    withBaseOptions({ tempo: 100, noteTimeScale: 2, outputStrategy: 'separate_tracks' })
+  );
+
   const quantSplit = {
     midiDefault: resolveExportOptions(withBaseOptions(), 'midi').debug,
     abcDefault: resolveExportOptions(withBaseOptions(), 'abc').debug,
@@ -157,7 +193,17 @@ export function runFixtureSuite() {
       phr: abcCustomPhr.split('\n').find(line => line.startsWith('K:')) || '',
       mixolydian: abcCustomMix.split('\n').find(line => line.startsWith('K:')) || ''
     },
-    modalConversion: { direct: modalDirect, viaGetTransformedNotes: modalViaTransform }
+    modalConversion: { direct: modalDirect, viaGetTransformedNotes: modalViaTransform },
+
+    timelineHeaderClone: {
+      previewTempos: timelinePreview.header.tempos.map(t => ({ ticks: t.ticks, bpm: t.bpm })),
+      previewTimeSignatures: timelinePreview.header.timeSignatures.map(ts => ({ ticks: ts.ticks, timeSignature: ts.timeSignature })),
+      previewTempoCount: timelinePreview.header.tempos.length,
+      previewTimeSignatureCount: timelinePreview.header.timeSignatures.length,
+      pianoRollTempoTicks: timelinePianoRoll.ppq,
+      pianoRollFirstTick: timelinePianoRoll.notes[0]?.ticks ?? -1,
+      pianoRollLastTick: timelinePianoRoll.notes[timelinePianoRoll.notes.length - 1]?.ticks ?? -1
+    },
   };
 }
 
