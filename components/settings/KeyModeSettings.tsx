@@ -87,7 +87,7 @@ export default function KeyModeSettings() {
                 <div className="mt-4 p-3 border border-gray-700 rounded-md bg-gray-900/40">
                     <div className="flex items-center justify-between">
                         <div>
-                            <span className="text-sm font-medium text-gray-300">Override ABC export key (K:)</span>
+                            <span className="text-sm font-medium text-gray-300">Set your own export key (K:)</span>
                             <p className="text-xs text-gray-500 mt-1">Choose tonic, mode and additional accidentals using ABC key syntax.</p>
                         </div>
                         <label className="flex items-center cursor-pointer">

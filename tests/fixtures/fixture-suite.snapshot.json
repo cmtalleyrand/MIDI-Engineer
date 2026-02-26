@@ -226,5 +226,10 @@
   "duplicatePitchHandling": {
     "keyLine": "K:_B min =A =E",
     "containsDuplicatedChordPitch": false
+  },
+  "customKeyAffectsPitchSpelling": {
+    "keyLine": "K:D phr",
+    "bodyLineWithCustomKey": "B | |]",
+    "bodyLineWithDefaultKey": "^A | |]"
   }
 }

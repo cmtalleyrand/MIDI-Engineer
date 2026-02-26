@@ -136,6 +136,29 @@ export function runFixtureSuite() {
     }
   }), 120);
 
+
+  const customKeyScaleMidi = new Midi();
+  customKeyScaleMidi.header.setTempo(120);
+  customKeyScaleMidi.header.timeSignatures = [{ ticks: 0, timeSignature: [4, 4] }];
+  const customKeyTrack = customKeyScaleMidi.addTrack();
+  customKeyTrack.name = 'CustomKeyScale';
+  customKeyTrack.addNote({ midi: 70, ticks: 0, durationTicks: 240, velocity: 0.8 });
+  const customKeyScaleAbc = renderMidiToAbc(customKeyScaleMidi, 'custom-key-scale.abc', withBaseOptions({
+    outputStrategy: 'combine',
+    abcKeyExport: {
+      enabled: true,
+      tonicLetter: 'D',
+      tonicAccidental: '=',
+      mode: 'phr',
+      additionalAccidentals: []
+    }
+  }), 120);
+
+  const defaultScaleAbc = renderMidiToAbc(customKeyScaleMidi, 'default-key-scale.abc', withBaseOptions({
+    outputStrategy: 'combine',
+    abcKeyExport: { enabled: false, tonicLetter: 'C', tonicAccidental: '=', mode: 'maj', additionalAccidentals: [] }
+  }), 120);
+
   const quantSplit = {
     midiDefault: resolveExportOptions(withBaseOptions(), 'midi').debug,
     abcDefault: resolveExportOptions(withBaseOptions(), 'abc').debug,
@@ -167,6 +190,11 @@ export function runFixtureSuite() {
     duplicatePitchHandling: {
       keyLine: duplicateAbc.split('\n').find(line => line.startsWith('K:')) || '',
       containsDuplicatedChordPitch: duplicateAbc.includes('[B-B]')
+    },
+    customKeyAffectsPitchSpelling: {
+      keyLine: customKeyScaleAbc.split('\n').find(line => line.startsWith('K:')) || '',
+      bodyLineWithCustomKey: customKeyScaleAbc.split('\n').find(line => line.includes('|') && !line.startsWith('%')) || '',
+      bodyLineWithDefaultKey: defaultScaleAbc.split('\n').find(line => line.includes('|') && !line.startsWith('%')) || ''
     }
   };
 }
