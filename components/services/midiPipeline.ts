@@ -120,6 +120,8 @@ export function copyAndTransformTrackEvents(
     });
 
     // 2. Filter Short Notes (On original timeframe, effectively dest timeframe now)
+    // removeShortNotesThreshold is carried in source-PPQ ticks.
+    // Normalize it to destination PPQ alongside note durations.
     const scaledThreshold = Math.round(options.removeShortNotesThreshold * ppqRatio);
     if (scaledThreshold > 0) {
         transformedNotes = transformedNotes.filter(n => n.durationTicks >= scaledThreshold);
