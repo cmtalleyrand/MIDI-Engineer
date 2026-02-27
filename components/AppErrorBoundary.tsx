@@ -15,7 +15,7 @@ type AppErrorBoundaryState = {
 };
 
 export class AppErrorBoundary extends React.Component<
-  React.PropsWithChildren,
+  { children?: React.ReactNode },
   AppErrorBoundaryState
 > {
   public state: AppErrorBoundaryState = {

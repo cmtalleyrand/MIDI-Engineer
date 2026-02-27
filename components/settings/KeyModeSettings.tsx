@@ -271,7 +271,7 @@ export default function KeyModeSettings() {
                                     const moved = Array.from({ length: 12 }, (_, i) => i)
                                         .filter(i => (modalMappings[i] ?? i) !== i)
                                         .reduce((sum, i) => sum + (midiPitchHistogram[(modalRoot + i) % 12] || 0), 0);
-                                    const total = Object.values(midiPitchHistogram).reduce((a, b) => a + b, 0);
+                                    const total = (Object.values(midiPitchHistogram) as number[]).reduce((a, b) => a + b, 0);
                                     return moved > 0
                                         ? <span className="text-yellow-500">{moved} of {total} notes will be remapped</span>
                                         : <span>No notes remapped (all mappings are identity)</span>;
