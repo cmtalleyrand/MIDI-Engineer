@@ -119,6 +119,7 @@ export const SettingsProvider = ({ children }: { children?: ReactNode }) => {
     const [tempoChangeMode, setTempoChangeMode] = useState<TempoChangeMode>('speed');
     const [originalDuration, setOriginalDuration] = useState<number | null>(null);
     const [newDuration, setNewDuration] = useState<number | null>(null);
+    const [sourcePPQ, setSourcePPQ] = useState<number | null>(null);
     const [noteTimeScale, setNoteTimeScale] = useState<string>('1');
 
     const [transpositionSemitones, setTranspositionSemitones] = useState<string>('0');
@@ -171,6 +172,7 @@ export const SettingsProvider = ({ children }: { children?: ReactNode }) => {
         setNewTimeSignature({ numerator: String(tsData[0]), denominator: String(tsData[1]) });
         setOriginalDuration(midiData.duration);
         setNewDuration(midiData.duration);
+        setSourcePPQ(midiData.header.ppq || 480);
         const hist: Record<number, number> = {};
         for (let i = 0; i < 12; i++) hist[i] = 0;
         midiData.tracks.forEach(track => track.notes.forEach(n => { hist[n.midi % 12]++; }));
@@ -202,6 +204,7 @@ export const SettingsProvider = ({ children }: { children?: ReactNode }) => {
         setTempoChangeMode('speed');
         setOriginalDuration(null);
         setNewDuration(null);
+        setSourcePPQ(null);
         setTranspositionSemitones('0');
         setTranspositionOctaves('0');
         setNoteTimeScale('1');
@@ -251,10 +254,8 @@ export const SettingsProvider = ({ children }: { children?: ReactNode }) => {
         if (isNaN(parsedTempo) || parsedTempo <= 0) return null;
         if (isNaN(parsedTsNum) || isNaN(parsedTsDenom) || parsedTsNum <= 0 || parsedTsDenom <= 0) return null;
 
-        // Note: For ticks calculation, we assume standard 480 PPQ for UI purposes if midiData isn't immediately available.
-        // The pipeline re-scales this if the file differs.
-        const ppq = 480; 
-        
+        const ppq = sourcePPQ || 480;
+
         const removeThresholdTicks = Math.round(ppq * MUSICAL_TIME_OPTIONS[removeShortNotesThresholdIndex].value);
         const softOverlapToleranceTicks = MUSICAL_TIME_OPTIONS[softOverlapToleranceIndex].value;
         const quantizationValue = primaryRhythm.enabled ? primaryRhythm.minNoteValue : 'off';
@@ -292,7 +293,7 @@ export const SettingsProvider = ({ children }: { children?: ReactNode }) => {
             keySignatureSpelling,
             abcKeyExport
         };
-    }, [newTempo, newTimeSignature, transpositionSemitones, transpositionOctaves, originalTempo, tempoChangeMode, noteTimeScale, inversionMode, melodicInversion, exportRange, primaryRhythm, secondaryRhythm, quantizeDurationMin, shiftToMeasure, detectOrnaments, isModalConversionEnabled, modalRoot, modalModeName, modalMappings, removeShortNotesThresholdIndex, pruneOverlaps, pruneThresholdIndex, softOverlapToleranceIndex, pitchBias, maxVoices, disableChords, outputStrategy, keySignatureSpelling, abcKeyExport]);
+    }, [newTempo, newTimeSignature, transpositionSemitones, transpositionOctaves, originalTempo, tempoChangeMode, noteTimeScale, inversionMode, melodicInversion, exportRange, primaryRhythm, secondaryRhythm, quantizeDurationMin, shiftToMeasure, detectOrnaments, isModalConversionEnabled, modalRoot, modalModeName, modalMappings, removeShortNotesThresholdIndex, pruneOverlaps, pruneThresholdIndex, softOverlapToleranceIndex, pitchBias, maxVoices, disableChords, outputStrategy, keySignatureSpelling, abcKeyExport, sourcePPQ]);
 
     const settingsState: SettingsState = {
         originalTempo, newTempo, originalTimeSignature, newTimeSignature, tempoChangeMode, originalDuration, newDuration, noteTimeScale,
