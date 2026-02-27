@@ -224,7 +224,56 @@
     "mixolydian": "K:D maj =c"
   },
   "modalConversion": {
-    "direct": [60, 62, 63, 65, 67, 69, 70],
-    "viaGetTransformedNotes": [60, 62, 63, 65, 67, 69, 70]
+    "direct": [
+      60,
+      62,
+      63,
+      65,
+      67,
+      69,
+      70
+    ],
+    "viaGetTransformedNotes": [
+      60,
+      62,
+      63,
+      65,
+      67,
+      69,
+      70
+    ]
+  },
+  "timelineHeaderClone": {
+    "previewTempos": [
+      {
+        "ticks": 0,
+        "bpm": 90
+      },
+      {
+        "ticks": 1920,
+        "bpm": 140
+      }
+    ],
+    "previewTimeSignatures": [
+      {
+        "ticks": 0,
+        "timeSignature": [
+          3,
+          4
+        ]
+      },
+      {
+        "ticks": 1920,
+        "timeSignature": [
+          5,
+          8
+        ]
+      }
+    ],
+    "previewTempoCount": 2,
+    "previewTimeSignatureCount": 2,
+    "pianoRollTempoTicks": 480,
+    "pianoRollFirstTick": 0,
+    "pianoRollLastTick": 4608
   }
 }
