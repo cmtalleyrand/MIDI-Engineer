@@ -43,6 +43,8 @@ It is aimed primarily at musicians (especially non-coders) who need precise cont
 ### 5) Export
 - **MIDI export** for downstream production workflows.
 - **ABC export** for notation workflows.
+- **Duplicate-note hygiene:** Exact duplicate notes (same pitch, onset, and duration) are removed during export.
+- **Musical-time issue reporting:** Duplicate-note warnings are reported using musical location only (measure/beat + beat fraction), never raw tick values.
 
 ## Default Output Policy (Intent)
 

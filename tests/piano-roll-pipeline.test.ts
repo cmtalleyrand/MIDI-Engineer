@@ -54,4 +54,35 @@ export function runPianoRollPipelineTests() {
   const exportTrack = exportMidi.addTrack();
   copyAndTransformTrackEvents(track, exportTrack, options, new Set(), exportMidi.header, midi.header.ppq);
   assert.equal(exportTrack.notes.length, 1, 'Export transform path should keep the same note (prevents empty ABC/MIDI exports).');
+
+  const duplicateMidi = new Midi();
+  const duplicateTrack = duplicateMidi.addTrack();
+  duplicateTrack.name = 'Duplicate-note export regression';
+  duplicateTrack.addNote({ midi: 64, ticks: 960, durationTicks: 240, velocity: 0.7 });
+  duplicateTrack.addNote({ midi: 64, ticks: 960, durationTicks: 240, velocity: 0.7 });
+  duplicateTrack.addNote({ midi: 67, ticks: 1200, durationTicks: 120, velocity: 0.7 });
+
+  const dedupeExportMidi = new Midi();
+  const dedupeExportTrack = dedupeExportMidi.addTrack();
+  const warnings: string[] = [];
+  const originalWarn = console.warn;
+  console.warn = (...args: unknown[]) => warnings.push(args.map(String).join(' '));
+  try {
+    copyAndTransformTrackEvents(duplicateTrack, dedupeExportTrack, buildOptions(), new Set(), dedupeExportMidi.header, duplicateMidi.header.ppq);
+  } finally {
+    console.warn = originalWarn;
+  }
+
+  assert.equal(dedupeExportTrack.notes.length, 2, 'Export transform path should remove exact duplicate notes while keeping unique notes.');
+  assert.equal(
+    dedupeExportTrack.notes.filter(note => note.midi === 64 && note.ticks === 960 && note.durationTicks === 240).length,
+    1,
+    'Only one instance of an identical duplicated note should remain after export processing.'
+  );
+  assert.equal(warnings.length, 1, 'Duplicate-note removal should emit a single warning for the track.');
+  assert.match(
+    warnings[0],
+    /Export Duplicate Notes.*Duplicate-note export regression.*midi=64.*@M1:B3\+0\.00.*duration=0\.5 beat\(s\)/i,
+    'Duplicate-note warning should clearly indicate track and location (tick + measure/beat).'
+  );
 }
