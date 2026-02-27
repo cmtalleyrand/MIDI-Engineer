@@ -1,5 +1,12 @@
 # Change Log
 
+## 2026-02-27 — Export duplicate-note reporting uses musical time only
+
+- Updated export duplicate-note warnings to avoid raw tick units in user-facing messages.
+- Warnings now report note locations as musical time (`M#:B#+fraction`) and durations in beats.
+- Retained exact duplicate-note removal behavior (same MIDI pitch, onset, and duration).
+- Added README documentation clarifying duplicate-note cleanup and musical-time reporting policy.
+
 Purpose: persistent high-detail project memory for future AI sessions and maintainers.
 
 ## [Unreleased]

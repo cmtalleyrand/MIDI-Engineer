@@ -108,6 +108,15 @@ export function runFixtureSuite() {
     }
   }), 120);
 
+
+  const tieMidi = new Midi();
+  tieMidi.header.setTempo(120);
+  tieMidi.header.timeSignatures = [{ ticks: 0, timeSignature: [4, 4] }];
+  const tieTrack = tieMidi.addTrack();
+  tieTrack.name = 'Tie Fixture';
+  tieTrack.addNote({ midi: 60, ticks: 1800, durationTicks: 300, velocity: 0.8 });
+  const abcTie = renderMidiToAbc(tieMidi, 'tie.abc', withBaseOptions({ outputStrategy: 'combine' }), 120);
+
   const abcCustomMix = renderMidiToAbc(midi, 'custom-mix.abc', withBaseOptions({
     abcKeyExport: {
       enabled: true,
@@ -156,6 +165,10 @@ export function runFixtureSuite() {
     abcKeyOverrides: {
       phr: abcCustomPhr.split('\n').find(line => line.startsWith('K:')) || '',
       mixolydian: abcCustomMix.split('\n').find(line => line.startsWith('K:')) || ''
+    },
+    abcTiePlacement: {
+      hasCorrectPlacement: abcTie.includes('C5-') || abcTie.includes('C-') || abcTie.includes('c5-') || abcTie.includes('c-'),
+      hasWrongPlacement: abcTie.includes('C-5') || abcTie.includes('c-5')
     },
     modalConversion: { direct: modalDirect, viaGetTransformedNotes: modalViaTransform }
   };

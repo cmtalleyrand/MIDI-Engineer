@@ -83,6 +83,62 @@ export function logExportResolution(debug: ExportResolutionDebugInfo): void {
     console.debug(`[Export Resolution] ${debug.target.toUpperCase()} quantization path`, debug);
 }
 
+
+interface DuplicateNoteIssue {
+    midi: number;
+    durationBeats: number;
+    duplicateCount: number;
+    measure: number;
+    beat: number;
+    beatSubdivision: string;
+}
+
+function dedupeNotesAndReport(notes: any[], trackName: string, timeSignature: ConversionOptions['timeSignature'], ppq: number): any[] {
+    const byIdentity = new Map<string, { note: any; duplicates: number }>();
+
+    for (const note of notes) {
+        const key = `${note.midi}|${note.ticks}|${note.durationTicks}`;
+        const entry = byIdentity.get(key);
+        if (entry) {
+            entry.duplicates += 1;
+        } else {
+            byIdentity.set(key, { note, duplicates: 0 });
+        }
+    }
+
+    const deduped: any[] = [];
+    const issues: DuplicateNoteIssue[] = [];
+    byIdentity.forEach(({ note, duplicates }) => {
+        deduped.push(note);
+        if (duplicates > 0) {
+            const ticksPerMeasure = ppq * 4 * (timeSignature.numerator / timeSignature.denominator);
+            const measure = Math.floor(note.ticks / ticksPerMeasure) + 1;
+            const beatTicks = ppq * (4 / timeSignature.denominator);
+            const beat = Math.floor((note.ticks % ticksPerMeasure) / beatTicks) + 1;
+            const beatPositionWithinMeasure = (note.ticks % ticksPerMeasure) / beatTicks;
+            const beatSubdivision = (beatPositionWithinMeasure - (beat - 1)).toFixed(2);
+            issues.push({
+                midi: note.midi,
+                durationBeats: Number((note.durationTicks / beatTicks).toFixed(2)),
+                duplicateCount: duplicates,
+                measure,
+                beat,
+                beatSubdivision
+            });
+        }
+    });
+
+    if (issues.length > 0) {
+        const removedCount = issues.reduce((sum, issue) => sum + issue.duplicateCount, 0);
+        const issueSummary = issues
+            .map(issue => `midi=${issue.midi} @M${issue.measure}:B${issue.beat}+${issue.beatSubdivision} duration=${issue.durationBeats} beat(s) (removed=${issue.duplicateCount})`)
+            .join('; ');
+        console.warn(`[Export Duplicate Notes] Removed ${removedCount} duplicate note(s) from track "${trackName || 'Untitled Track'}": ${issueSummary}`);
+    }
+
+    return deduped;
+}
+
 export function copyAndTransformTrackEvents(
     sourceTrack: Track, 
     destinationTrack: Track, 
@@ -162,6 +218,8 @@ export function copyAndTransformTrackEvents(
         
         transformedNotes = cropToRange(transformedNotes, options, destPPQ);
     }
+
+    transformedNotes = dedupeNotesAndReport(transformedNotes, sourceTrack.name, options.timeSignature, destPPQ);
 
     const secondsPerTick = (60 / options.tempo) / destPPQ;
     transformedNotes = transformedNotes.map(n => ({ ...n, time: n.ticks * secondsPerTick, duration: n.durationTicks * secondsPerTick }));
