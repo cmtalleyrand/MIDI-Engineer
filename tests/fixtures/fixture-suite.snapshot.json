@@ -8,35 +8,27 @@
     },
     {
       "midi": 62,
-      "ticks": 160,
-      "selectedFamily": "Triple",
-      "conflictTypes": [
-        "type3_contextual_rhythm"
-      ]
+      "ticks": 120,
+      "selectedFamily": "Simple",
+      "conflictTypes": []
     },
     {
       "midi": 64,
       "ticks": 240,
       "selectedFamily": "Simple",
-      "conflictTypes": [
-        "type2_polyphony_blip"
-      ]
+      "conflictTypes": []
     },
     {
       "midi": 65,
-      "ticks": 320,
-      "selectedFamily": "Triple",
-      "conflictTypes": [
-        "type3_contextual_rhythm"
-      ]
+      "ticks": 360,
+      "selectedFamily": "Simple",
+      "conflictTypes": []
     },
     {
       "midi": 67,
       "ticks": 480,
       "selectedFamily": "Simple",
-      "conflictTypes": [
-        "type2_polyphony_blip"
-      ]
+      "conflictTypes": []
     }
   ],
   "contextualTriplet": [
@@ -52,8 +44,8 @@
     },
     {
       "midi": 74,
-      "ticks": 360,
-      "selectedFamily": "Simple"
+      "ticks": 320,
+      "selectedFamily": "Triple"
     },
     {
       "midi": 76,
@@ -71,17 +63,13 @@
     },
     {
       "midi": 60,
-      "ticks": 240,
-      "durationTicks": 240,
+      "ticks": 320,
+      "durationTicks": 320,
       "conflictTypes": [
         "type1_unison_overlap",
-        "type2_polyphony_blip"
+        "type3_contextual_rhythm"
       ],
-      "accommodationApplied": {
-        "shortenedFrom": 360,
-        "shortenedTo": 240,
-        "reason": "Accommodation-first unison overlap shortening applied to candidate note."
-      }
+      "accommodationApplied": null
     }
   ],
   "densityBlip": [
@@ -103,9 +91,7 @@
       "midi": 67,
       "ticks": 480,
       "durationTicks": 480,
-      "conflictTypes": [
-        "type2_polyphony_blip"
-      ]
+      "conflictTypes": []
     }
   ],
   "ornaments": {
