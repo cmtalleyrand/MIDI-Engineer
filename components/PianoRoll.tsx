@@ -313,7 +313,11 @@ const PianoRoll: React.FC<PianoRollProps> = ({ trackData }) => {
                                    <div>confidence-edit={selectedNote.shadowDecision.objectiveBreakdown.confidenceAwareEdit.toFixed(2)}</div>
                                </div>
                                {selectedNote.shadowDecision.conflictTypes.length > 0 && (
-                                   <p className="text-yellow-400">Conflicts: {selectedNote.shadowDecision.conflictTypes.join(', ')}</p>
+                                   <p className="text-yellow-400">Conflicts: {selectedNote.shadowDecision.conflictTypes.map((type: string) => ({
+                                       type1_unison_overlap: 'Type 1: unison overlap',
+                                       type2_polyphony_blip: 'Type 2: polyphony blip',
+                                       type3_contextual_rhythm: 'Type 3: contextual rhythm'
+                                   }[type] ?? type)).join(', ')}</p>
                                )}
                                {selectedNote.shadowDecision.accommodationApplied && (
                                    <p className="text-green-400">Accommodation: {selectedNote.shadowDecision.accommodationApplied.shortenedFrom} → {selectedNote.shadowDecision.accommodationApplied.shortenedTo}</p>

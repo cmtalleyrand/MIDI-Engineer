@@ -213,7 +213,10 @@ function countShortPolyphonyBlips(notes: RawNote[], ppq: number): number {
         events.push({ tick: n.ticks, delta: 1 });
         events.push({ tick: n.ticks + n.durationTicks, delta: -1 });
     });
-    events.sort((a, b) => a.tick - b.tick || b.delta - a.delta);
+    // At identical ticks, process note-offs before note-ons so we don't create
+    // zero-length "phantom" polyphony spikes when one note ends exactly as
+    // another starts.
+    events.sort((a, b) => a.tick - b.tick || a.delta - b.delta);
 
     let active = 0;
     let spikeStart: number | null = null;
