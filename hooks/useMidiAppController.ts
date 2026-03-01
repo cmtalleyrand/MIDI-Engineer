@@ -144,6 +144,11 @@ export const useMidiAppController = () => {
         } catch (e) { ui.setErrorMessage("Could not analyze selection."); }
     };
 
+    const handleOpenDrumGenerator = () => {
+        if (!project.midiData) return;
+        ui.setIsDrumGeneratorVisible(true);
+    };
+
     return {
         project,
         playback,
@@ -160,7 +165,8 @@ export const useMidiAppController = () => {
             handlePreview,
             handleShowPianoRoll,
             handleAnalyzeTrack,
-            handleAnalyzeSelection
+            handleAnalyzeSelection,
+            handleOpenDrumGenerator
         }
     };
 };

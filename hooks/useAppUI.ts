@@ -13,6 +13,7 @@ export const useAppUI = () => {
     const [pianoRollTrackData, setPianoRollTrackData] = useState<PianoRollTrackData | null>(null);
     const [isAnalysisVisible, setIsAnalysisVisible] = useState<boolean>(false);
     const [analysisData, setAnalysisData] = useState<TrackAnalysisData | null>(null);
+    const [isDrumGeneratorVisible, setIsDrumGeneratorVisible] = useState<boolean>(false);
 
     // PWA
     const [installPrompt, setInstallPrompt] = useState<any>(null);
@@ -71,6 +72,7 @@ export const useAppUI = () => {
         pianoRollTrackData, setPianoRollTrackData,
         isAnalysisVisible, setIsAnalysisVisible,
         analysisData, setAnalysisData,
+        isDrumGeneratorVisible, setIsDrumGeneratorVisible,
         installPrompt, isInstalled, showInstallHelp, setShowInstallHelp,
         handleInstallClick,
         clearMessages
