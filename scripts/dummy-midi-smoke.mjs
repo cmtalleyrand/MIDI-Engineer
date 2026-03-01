@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import toneMidiPkg from '@tonejs/midi';
@@ -26,7 +26,10 @@ const outPath = join(tempDir, 'dummy-test.mid');
 try {
   writeFileSync(outPath, Buffer.from(bytes));
 
-  const reparsed = new Midi(bytes);
+  const fromDisk = readFileSync(outPath);
+  assert.ok(fromDisk.length > 0, 'Expected MIDI file bytes to be written.');
+
+  const reparsed = new Midi(fromDisk);
   assert.equal(reparsed.tracks.length, 1, 'Expected one track after roundtrip.');
   assert.equal(reparsed.tracks[0].notes.length, 5, 'Expected five notes in dummy test track.');
 } finally {
