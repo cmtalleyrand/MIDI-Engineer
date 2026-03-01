@@ -231,6 +231,10 @@ export function copyHeaderEvents(
     if (destHeader.timeSignatures.length === 0) {
         destHeader.timeSignatures = [{ ticks: 0, timeSignature: [options.timeSignature.numerator, options.timeSignature.denominator] }];
     }
+
+    // Recalculate internal `time` fields that @tonejs/midi uses for tick↔time conversion.
+    // Without this, addNote() enters an infinite loop trying to resolve tempo timing.
+    destHeader.update();
 }
 
 export function copyAndTransformTrackEvents(
