@@ -78,6 +78,7 @@ function MidiAppContent() {
                  isExportingAbc={ui.isExportingAbc}
                  canProcess={project.selectedTracks.size >= 1}
                  selectedCount={project.selectedTracks.size}
+                 isDrumGenerationEnabled={computed.isDrumGenerationEnabled}
               />
             </div>
           )}

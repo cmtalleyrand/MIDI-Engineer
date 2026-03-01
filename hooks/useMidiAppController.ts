@@ -157,6 +157,7 @@ export const useMidiAppController = () => {
         computed: {
             inversionStats,
             quantizationWarning,
+            isDrumGenerationEnabled: settings.drumGeneration.enabled,
             isLoadedState: [AppState.LOADED, AppState.COMBINING, AppState.SUCCESS, AppState.DOWNLOAD_ERROR].includes(project.loadState) || project.midiData !== null
         },
         handlers: {
