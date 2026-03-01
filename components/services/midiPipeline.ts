@@ -232,7 +232,6 @@ export function copyHeaderEvents(
         destHeader.timeSignatures = [{ ticks: 0, timeSignature: [options.timeSignature.numerator, options.timeSignature.denominator] }];
     }
 }
-}
 
 export function copyAndTransformTrackEvents(
     sourceTrack: Track, 
