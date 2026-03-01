@@ -45,7 +45,7 @@ export default function RhythmDrumsSettings() {
                 <option key={value} value={value}>{label}</option>
               ))}
             </select>
-            <p className="text-xs text-gray-500 mt-2">Orchestral/pop/electronic-leaning presets. Only Electro Pulse is hi-hat forward.</p>
+            <p className="text-xs text-gray-500 mt-2">MIDI export only: ABC export ignores generated drums. Orchestral/pop/electronic presets; only Electro Pulse is hi-hat forward.</p>
           </div>
 
           <div>

@@ -49,6 +49,7 @@ export function resolveExportOptions(options: ConversionOptions, target: ExportT
         return {
             options: {
                 ...options,
+                drumGeneration: { ...options.drumGeneration, enabled: false },
                 quantizationValue: primaryRhythmValue,
                 primaryRhythm: { ...options.primaryRhythm, enabled: true, minNoteValue: primaryRhythmValue }
             },
@@ -66,7 +67,7 @@ export function resolveExportOptions(options: ConversionOptions, target: ExportT
     }
 
     return {
-        options,
+        options: target === 'abc' ? { ...options, drumGeneration: { ...options.drumGeneration, enabled: false } } : options,
         debug: {
             target,
             quantizationPath: explicitUserQuantization ? 'resolved_shadow' : 'bypass',

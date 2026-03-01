@@ -97,7 +97,13 @@ export const useMidiAppController = () => {
         }
         try {
             const baseName = project.fileName.replace(/\.mid(i)?$/i, '');
-            await exportTracksToAbc(project.midiData, Array.from(project.selectedTracks), `${baseName}_export.abc`, settings.eventsToDelete, options);
+            await exportTracksToAbc(
+                project.midiData,
+                Array.from(project.selectedTracks),
+                `${baseName}_export.abc`,
+                settings.eventsToDelete,
+                { ...options, drumGeneration: { ...options.drumGeneration, enabled: false } }
+            );
             ui.setSuccessMessage('ABC file downloaded successfully!');
             ui.setUiState(AppState.SUCCESS);
         } catch(e) {
