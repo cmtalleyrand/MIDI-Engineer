@@ -10,6 +10,28 @@ const STYLE_LABELS: Record<DrumStyle, string> = {
   electro_pulse: 'Electro Pulse (Hat)'
 };
 
+const STYLE_DESCRIPTIONS: Record<DrumStyle, string> = {
+  four_on_floor: 'Kick on every beat, clap on beats 2 & 4. Off-beat kicks appear above 60% density.',
+  martial: 'Snare-heavy with kick on downbeats. Ghost snares appear above 50% density.',
+  timpani_melodic: 'Three toms mapped to source pitch (low/mid/high). Rolls appear above 65% density.',
+  cinematic_toms: 'Deep low-tom pulse with mid-tom accents every 3 hits. Crash peaks appear above 70% density.',
+  electro_pulse: 'Kick + off-beat hi-hat grid, clap on beat 2. Extra hi-hat subdivisions appear above 45% density.',
+};
+
+function getDensityLabel(v: number): string {
+  if (v < 0.35) return 'Sparse — base pattern only, no fills';
+  if (v < 0.55) return 'Moderate — occasional extra hits';
+  if (v < 0.70) return 'Dense — frequent fills added';
+  return 'Heavy — maximum fills and extras';
+}
+
+function getIntensityLabel(v: number): string {
+  if (v < 0.30) return 'Soft — ghost notes, quiet hits';
+  if (v < 0.55) return 'Light — gentle accent';
+  if (v < 0.75) return 'Medium — standard accent';
+  return 'Hard — full forte, punchy hits';
+}
+
 export default function RhythmDrumsSettings() {
   const { settings, setters } = useSettings();
   const { drumGeneration } = settings;
@@ -45,11 +67,19 @@ export default function RhythmDrumsSettings() {
                 <option key={value} value={value}>{label}</option>
               ))}
             </select>
-            <p className="text-xs text-gray-500 mt-2">MIDI export only: ABC export ignores generated drums. Orchestral/pop/electronic presets; only Electro Pulse is hi-hat forward.</p>
+            <p className="text-xs text-gray-500 mt-2">
+              {STYLE_DESCRIPTIONS[drumGeneration.style]}
+            </p>
+            <p className="text-xs text-gray-600 mt-1">MIDI export only — ABC export ignores generated drums.</p>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1">Density ({Math.round(drumGeneration.density * 100)}%)</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-medium text-gray-400">
+                Fill Density
+              </label>
+              <span className="text-xs font-mono text-brand-primary">{Math.round(drumGeneration.density * 100)}%</span>
+            </div>
             <input
               type="range"
               min="0"
@@ -58,10 +88,24 @@ export default function RhythmDrumsSettings() {
               onChange={(e) => handlePatch({ density: Number(e.target.value) / 100 })}
               className="w-full"
             />
+            <div className="flex justify-between text-[10px] text-gray-600 mt-0.5 px-0.5">
+              <span>Sparse</span>
+              <span>Moderate</span>
+              <span>Dense</span>
+              <span>Heavy</span>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              {getDensityLabel(drumGeneration.density)}
+            </p>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1">Intensity ({Math.round(drumGeneration.intensity * 100)}%)</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-medium text-gray-400">
+                Hit Strength
+              </label>
+              <span className="text-xs font-mono text-brand-primary">{Math.round(drumGeneration.intensity * 100)}%</span>
+            </div>
             <input
               type="range"
               min="0"
@@ -70,6 +114,15 @@ export default function RhythmDrumsSettings() {
               onChange={(e) => handlePatch({ intensity: Number(e.target.value) / 100 })}
               className="w-full"
             />
+            <div className="flex justify-between text-[10px] text-gray-600 mt-0.5 px-0.5">
+              <span>Soft</span>
+              <span>Light</span>
+              <span>Medium</span>
+              <span>Hard</span>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              {getIntensityLabel(drumGeneration.intensity)}
+            </p>
           </div>
         </div>
       </div>
