@@ -6,6 +6,7 @@ import { detectAndTagOrnaments } from '../components/services/midiCore';
 import { distributeToVoices } from '../components/services/midiVoices';
 import { resolveExportOptions } from '../components/services/midiPipeline';
 import { renderMidiToAbc } from '../components/services/midiAbc';
+import { performModalConversion, getTransformedNotes } from '../components/services/midiTransform';
 
 const PPQ = 480;
 const primarySimple: RhythmRule = { enabled: true, family: 'Simple', minNoteValue: '1/16' };
@@ -107,6 +108,15 @@ export function runFixtureSuite() {
     }
   }), 120);
 
+
+  const tieMidi = new Midi();
+  tieMidi.header.setTempo(120);
+  tieMidi.header.timeSignatures = [{ ticks: 0, timeSignature: [4, 4] }];
+  const tieTrack = tieMidi.addTrack();
+  tieTrack.name = 'Tie Fixture';
+  tieTrack.addNote({ midi: 60, ticks: 1800, durationTicks: 300, velocity: 0.8 });
+  const abcTie = renderMidiToAbc(tieMidi, 'tie.abc', withBaseOptions({ outputStrategy: 'combine' }), 120);
+
   const abcCustomMix = renderMidiToAbc(midi, 'custom-mix.abc', withBaseOptions({
     abcKeyExport: {
       enabled: true,
@@ -136,7 +146,6 @@ export function runFixtureSuite() {
     }
   }), 120);
 
-
   const customKeyScaleMidi = new Midi();
   customKeyScaleMidi.header.setTempo(120);
   customKeyScaleMidi.header.timeSignatures = [{ ticks: 0, timeSignature: [4, 4] }];
@@ -158,6 +167,17 @@ export function runFixtureSuite() {
     outputStrategy: 'combine',
     abcKeyExport: { enabled: false, tonicLetter: 'C', tonicAccidental: '=', mode: 'maj', additionalAccidentals: [] }
   }), 120);
+
+  // C Major scale → C Dorian: E(interval 4)→Eb(3), B(interval 11)→Bb(10)
+  const modalInput = [
+    note(60, 0, 480), note(62, 480, 480), note(64, 960, 480), note(65, 1440, 480),
+    note(67, 1920, 480), note(69, 2400, 480), note(71, 2880, 480)
+  ];
+  const dorianOpts = withBaseOptions({
+    modalConversion: { enabled: true, root: 0, modeName: 'Dorian', mappings: { 4: 3, 11: 10 } }
+  });
+  const modalDirect = performModalConversion(modalInput, dorianOpts).map(n => n.midi);
+  const modalViaTransform = getTransformedNotes(modalInput, dorianOpts, PPQ).map(n => n.midi);
 
   const quantSplit = {
     midiDefault: resolveExportOptions(withBaseOptions(), 'midi').debug,
@@ -187,6 +207,11 @@ export function runFixtureSuite() {
       phr: abcCustomPhr.split('\n').find(line => line.startsWith('K:')) || '',
       mixolydian: abcCustomMix.split('\n').find(line => line.startsWith('K:')) || ''
     },
+    abcTiePlacement: {
+      hasCorrectPlacement: abcTie.includes('C5-') || abcTie.includes('C-') || abcTie.includes('c5-') || abcTie.includes('c-'),
+      hasWrongPlacement: abcTie.includes('C-5') || abcTie.includes('c-5')
+    },
+    modalConversion: { direct: modalDirect, viaGetTransformedNotes: modalViaTransform },
     duplicatePitchHandling: {
       keyLine: duplicateAbc.split('\n').find(line => line.startsWith('K:')) || '',
       containsDuplicatedChordPitch: duplicateAbc.includes('[B-B]')
