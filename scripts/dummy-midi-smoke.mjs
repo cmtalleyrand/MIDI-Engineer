@@ -1,7 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import toneMidiPkg from '@tonejs/midi';
 const { Midi } = toneMidiPkg;
 
@@ -24,13 +22,9 @@ const reparsed = new Midi(bytes);
 assert.equal(reparsed.tracks.length, 1, 'Expected one track after roundtrip.');
 assert.equal(reparsed.tracks[0].notes.length, 5, 'Expected five notes in dummy test track.');
 
-const tempDir = mkdtempSync(join(tmpdir(), 'dummy-midi-smoke-'));
-const outPath = join(tempDir, 'dummy-test.mid');
-
-try {
-  writeFileSync(outPath, Buffer.from(bytes));
-} finally {
-  rmSync(tempDir, { recursive: true, force: true });
-}
+const outPath = 'artifacts/dummy-test.mid';
+mkdirSync('artifacts', { recursive: true });
+writeFileSync(outPath, Buffer.from(bytes));
 
 console.log('Dummy MIDI smoke test passed.');
+console.log(`Wrote: ${outPath}`);
