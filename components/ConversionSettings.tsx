@@ -7,6 +7,7 @@ import VoiceSettings from './settings/VoiceSettings';
 import KeyModeSettings from './settings/KeyModeSettings';
 import QuantizationSettings from './settings/QuantizationSettings';
 import FilterSettings from './settings/FilterSettings';
+import RhythmDrumsSettings from './settings/RhythmDrumsSettings';
 
 interface ConversionSettingsProps {
     eventCounts: MidiEventCounts | null;
@@ -28,6 +29,7 @@ export default function ConversionSettings({ eventCounts, quantizationWarning, i
             <KeyModeSettings />
             <QuantizationSettings quantizationWarning={quantizationWarning} />
             <FilterSettings eventCounts={eventCounts} />
+            <RhythmDrumsSettings />
         </div>
     </div>
   );

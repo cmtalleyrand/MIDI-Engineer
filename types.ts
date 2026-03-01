@@ -31,6 +31,8 @@ export interface MidiEventCounts {
 }
 
 export type TempoChangeMode = 'speed' | 'time';
+export type TempoMapMode = 'preserve' | 'scale' | 'constant';
+export type TimeSignatureMapMode = 'preserve' | 'constant';
 
 export type InversionMode = 'off' | 'global' | '1beat' | '2beats' | 'measure' | '2measures' | '4measures' | '8measures';
 
@@ -94,6 +96,8 @@ export interface ConversionOptions {
         denominator: number;
     };
     tempoChangeMode: TempoChangeMode;
+    tempoMapMode: TempoMapMode;
+    timeSignatureMapMode: TimeSignatureMapMode;
     originalTempo: number;
     transposition: number;
     noteTimeScale: number;
@@ -132,6 +136,23 @@ export interface ConversionOptions {
     // Key Signature Preference
     keySignatureSpelling: 'auto' | 'sharp' | 'flat';
     abcKeyExport: AbcKeyExportOptions;
+    drumGeneration: DrumGenerationOptions;
+}
+
+export type DrumStyle = 'four_on_floor' | 'martial' | 'timpani_melodic' | 'cinematic_toms' | 'electro_pulse';
+
+export interface DrumGenerationOptions {
+    enabled: boolean;
+    style: DrumStyle;
+    density: number; // 0..1
+    intensity: number; // 0..1
+}
+
+export interface RhythmSkeletonEvent {
+    ticks: number;
+    durationTicks: number;
+    strength: number;
+    sourceNoteMidi: number;
 }
 
 export interface VoiceAllocationMath {

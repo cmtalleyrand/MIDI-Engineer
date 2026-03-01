@@ -1,6 +1,8 @@
 
 import { Midi, Track } from '@tonejs/midi';
 import { ConversionOptions, MidiEventType, PianoRollTrackData } from '../../types';
+import { detectStructuralRhythm } from './rhythm/structuralRhythm';
+import { generateDrumNotesFromRhythm } from './rhythm/drumPatternGenerator';
 import { quantizeNotes, performInversion, performModalConversion, pruneOverlaps, performMelodicInversion, cropToRange } from './midiTransform';
 import { distributeToVoices } from './midiVoices';
 
@@ -78,6 +80,121 @@ export function resolveExportOptions(options: ConversionOptions, target: ExportT
     };
 }
 
+
+
+
+type HeaderTransformContext = {
+    sourcePPQ: number;
+    destPPQ: number;
+    timeScale: number;
+    cropEnabled: boolean;
+    cropStartTick: number;
+    cropEndTick: number;
+    sourceMaxTick: number;
+    isGlobalInversion: boolean;
+};
+
+function transformHeaderTick(tick: number, ctx: HeaderTransformContext): number | null {
+    const ppqRatio = ctx.destPPQ / ctx.sourcePPQ;
+    let transformedTick = Math.round(tick * ppqRatio);
+    transformedTick = Math.round(transformedTick * ctx.timeScale);
+    if (ctx.isGlobalInversion) {
+        transformedTick = Math.max(0, ctx.sourceMaxTick - transformedTick);
+    }
+    if (ctx.cropEnabled) {
+        if (transformedTick < ctx.cropStartTick || transformedTick > ctx.cropEndTick) return null;
+        transformedTick -= ctx.cropStartTick;
+    }
+    return Math.max(0, transformedTick);
+}
+
+function dedupeTempoEvents(events: Array<{ ticks: number; bpm: number }>): Array<{ ticks: number; bpm: number }> {
+    const sorted = [...events].sort((a, b) => a.ticks - b.ticks);
+    const result: Array<{ ticks: number; bpm: number }> = [];
+    sorted.forEach(event => {
+        const prev = result[result.length - 1];
+        if (!prev || prev.ticks !== event.ticks || Math.abs(prev.bpm - event.bpm) > 0.0001) {
+            result.push(event);
+        }
+    });
+    return result;
+}
+
+function dedupeTimeSignatureEvents(events: Array<{ ticks: number; timeSignature: [number, number] }>): Array<{ ticks: number; timeSignature: [number, number] }> {
+    const sorted = [...events].sort((a, b) => a.ticks - b.ticks);
+    const result: Array<{ ticks: number; timeSignature: [number, number] }> = [];
+    sorted.forEach(event => {
+        const prev = result[result.length - 1];
+        if (!prev || prev.ticks !== event.ticks || prev.timeSignature[0] !== event.timeSignature[0] || prev.timeSignature[1] !== event.timeSignature[1]) {
+            result.push(event);
+        }
+    });
+    return result;
+}
+
+function applyHeaderMaps(originalMidi: Midi, newMidi: Midi, options: ConversionOptions, sourceMaxTick: number): void {
+    let timeScale = options.noteTimeScale;
+    if (options.tempoChangeMode === 'time' && options.originalTempo > 0 && options.tempo > 0) {
+        timeScale *= options.originalTempo / options.tempo;
+    }
+
+    const destPPQ = newMidi.header.ppq;
+    const ticksPerMeasure = destPPQ * 4 * (options.timeSignature.numerator / options.timeSignature.denominator);
+    const cropEnabled = options.exportRange.enabled;
+    const cropStartTick = cropEnabled ? (options.exportRange.startMeasure - 1) * ticksPerMeasure : 0;
+    const cropEndTick = cropEnabled ? options.exportRange.endMeasure * ticksPerMeasure : Infinity;
+
+    const ctx: HeaderTransformContext = {
+        sourcePPQ: originalMidi.header.ppq,
+        destPPQ,
+        timeScale,
+        cropEnabled,
+        cropStartTick,
+        cropEndTick,
+        sourceMaxTick,
+        isGlobalInversion: options.inversionMode === 'global'
+    };
+
+    if (options.tempoMapMode === 'constant') {
+        newMidi.header.tempos = [{ ticks: 0, bpm: options.tempo }];
+    } else {
+        const sourceTempos = originalMidi.header.tempos.length > 0 ? originalMidi.header.tempos : [{ ticks: 0, bpm: options.originalTempo || options.tempo }];
+        const baseBpm = sourceTempos[0]?.bpm || options.tempo;
+        const bpmScale = options.tempoMapMode === 'scale' && baseBpm > 0 ? options.tempo / baseBpm : 1;
+        const mapped = sourceTempos
+            .map(t => {
+                const ticks = transformHeaderTick(t.ticks, ctx);
+                if (ticks === null) return null;
+                return { ticks, bpm: Math.max(1, t.bpm * bpmScale) };
+            })
+            .filter((t): t is { ticks: number; bpm: number } => t !== null);
+        const deduped = dedupeTempoEvents(mapped);
+        if (deduped.length === 0 || deduped[0].ticks !== 0) {
+            deduped.unshift({ ticks: 0, bpm: Math.max(1, baseBpm * bpmScale) });
+        }
+        newMidi.header.tempos = deduped;
+    }
+
+    if (options.timeSignatureMapMode === 'constant') {
+        newMidi.header.timeSignatures = [{ ticks: 0, timeSignature: [options.timeSignature.numerator, options.timeSignature.denominator] }];
+    } else {
+        const sourceSignatures = originalMidi.header.timeSignatures.length > 0
+            ? originalMidi.header.timeSignatures
+            : [{ ticks: 0, timeSignature: [options.timeSignature.numerator, options.timeSignature.denominator] as [number, number] }];
+        const mapped = sourceSignatures
+            .map(ts => {
+                const ticks = transformHeaderTick(ts.ticks, ctx);
+                if (ticks === null) return null;
+                return { ticks, timeSignature: [ts.timeSignature[0], ts.timeSignature[1]] as [number, number] };
+            })
+            .filter((ts): ts is { ticks: number; timeSignature: [number, number] } => ts !== null);
+        const deduped = dedupeTimeSignatureEvents(mapped);
+        if (deduped.length === 0 || deduped[0].ticks !== 0) {
+            deduped.unshift({ ticks: 0, timeSignature: [sourceSignatures[0].timeSignature[0], sourceSignatures[0].timeSignature[1]] });
+        }
+        newMidi.header.timeSignatures = deduped;
+    }
+}
 
 export function logExportResolution(debug: ExportResolutionDebugInfo): void {
     console.debug(`[Export Resolution] ${debug.target.toUpperCase()} quantization path`, debug);
@@ -211,6 +328,7 @@ export function createPreviewMidi(originalMidi: Midi, trackId: number, eventsToD
     // Create fresh Midi (defaults to 480 PPQ)
     const newMidi = new Midi();
     if (originalMidi.header.name) newMidi.header.name = originalMidi.header.name;
+    const sourceMaxTick = Math.max(...originalMidi.tracks.flatMap(t => t.notes.map(n => n.ticks + n.durationTicks)), 0);
     newMidi.header.setTempo(options.tempo);
     newMidi.header.timeSignatures = [{ ticks: 0, timeSignature: [options.timeSignature.numerator, options.timeSignature.denominator] }];
 
@@ -221,11 +339,13 @@ export function createPreviewMidi(originalMidi: Midi, trackId: number, eventsToD
     newTrack.instrument.name = originalTrack.instrument.name;
     
     copyAndTransformTrackEvents(originalTrack, newTrack, options, eventsToDelete, newMidi.header, originalMidi.header.ppq);
+    applyHeaderMaps(originalMidi, newMidi, options, sourceMaxTick);
     return newMidi;
 }
 
 export function getTransformedTrackDataForPianoRoll(originalMidi: Midi, trackId: number, options: ConversionOptions): PianoRollTrackData {
     const newMidi = new Midi();
+    const sourceMaxTick = Math.max(...originalMidi.tracks.flatMap(t => t.notes.map(n => n.ticks + n.durationTicks)), 0);
     newMidi.header.setTempo(options.tempo);
     newMidi.header.timeSignatures = [{ ticks: 0, timeSignature: [options.timeSignature.numerator, options.timeSignature.denominator] }];
 
@@ -234,6 +354,7 @@ export function getTransformedTrackDataForPianoRoll(originalMidi: Midi, trackId:
     newTrack.name = originalTrack.name;
     
     copyAndTransformTrackEvents(originalTrack, newTrack, options, new Set(), newMidi.header, originalMidi.header.ppq);
+    applyHeaderMaps(originalMidi, newMidi, options, sourceMaxTick);
     
     const distribution = distributeToVoices(newTrack.notes, options);
     const noteVoiceMap = new Map<any, number>();
@@ -281,6 +402,7 @@ export async function combineAndDownload(originalMidi: Midi, trackIds: number[],
     
     const newMidi = new Midi();
     if (originalMidi.header.name) newMidi.header.name = originalMidi.header.name;
+    const sourceMaxTick = Math.max(...originalMidi.tracks.flatMap(t => t.notes.map(n => n.ticks + n.durationTicks)), 0);
     newMidi.header.setTempo(resolvedOptions.tempo);
     newMidi.header.timeSignatures = [{ ticks: 0, timeSignature: [resolvedOptions.timeSignature.numerator, resolvedOptions.timeSignature.denominator] }];
 
@@ -349,8 +471,30 @@ export async function combineAndDownload(originalMidi: Midi, trackIds: number[],
         }
     }
 
+    if (resolvedOptions.drumGeneration.enabled) {
+        const notePool = originalMidi.tracks
+            .filter((_, idx) => selectedTrackIds.has(idx))
+            .flatMap(t => t.notes.map(n => ({ ...n })));
+        const skeleton = detectStructuralRhythm(notePool, originalMidi.header.ppq, {
+            detectOrnaments: resolvedOptions.detectOrnaments,
+            minInterOnsetTicks: Math.max(8, Math.round(originalMidi.header.ppq / 24))
+        });
+        const drumNotes = generateDrumNotesFromRhythm(skeleton, resolvedOptions.drumGeneration, newMidi.header.ppq);
+        if (drumNotes.length > 0) {
+            const drumTrack = newMidi.addTrack();
+            drumTrack.name = `Generated Drums - ${resolvedOptions.drumGeneration.style}`;
+            drumTrack.channel = 9;
+            drumTrack.instrument.number = 0;
+            drumNotes.forEach(n => drumTrack.addNote({ ...n, time: undefined, duration: undefined } as any));
+        }
+    }
+
+    applyHeaderMaps(originalMidi, newMidi, resolvedOptions, sourceMaxTick);
+
     const midiBytes = newMidi.toArray();
-    const blob = new Blob([midiBytes], { type: 'audio/midi' });
+    const midiBuffer = new ArrayBuffer(midiBytes.byteLength);
+    new Uint8Array(midiBuffer).set(midiBytes);
+    const blob = new Blob([midiBuffer], { type: 'audio/midi' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;

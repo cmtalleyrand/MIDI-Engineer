@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 import { Midi } from '@tonejs/midi';
-import { ConversionOptions, TempoChangeMode, InversionMode, OutputStrategy, RhythmRule, MelodicInversionOptions, ExportRangeOptions, MidiEventType, AbcKeyExportOptions } from '../types';
+import { ConversionOptions, TempoChangeMode, TempoMapMode, TimeSignatureMapMode, InversionMode, OutputStrategy, RhythmRule, MelodicInversionOptions, ExportRangeOptions, MidiEventType, AbcKeyExportOptions, DrumGenerationOptions } from '../types';
 import { MUSICAL_TIME_OPTIONS } from '../constants';
 
 interface SettingsState {
@@ -11,6 +11,8 @@ interface SettingsState {
     originalTimeSignature: { numerator: number, denominator: number } | null;
     newTimeSignature: { numerator: string, denominator: string };
     tempoChangeMode: TempoChangeMode;
+    tempoMapMode: TempoMapMode;
+    timeSignatureMapMode: TimeSignatureMapMode;
     originalDuration: number | null;
     newDuration: number | null;
     noteTimeScale: string;
@@ -39,6 +41,8 @@ interface SettingsState {
     disableChords: boolean;
     outputStrategy: OutputStrategy;
 
+    drumGeneration: DrumGenerationOptions;
+
     // Key & Mode
     isModalConversionEnabled: boolean;
     modalRoot: number;
@@ -60,6 +64,8 @@ interface SettingsContextType {
         setNewTempo: (val: string) => void;
         setNewTimeSignature: (val: { numerator: string, denominator: string }) => void;
         setTempoChangeMode: (val: TempoChangeMode) => void;
+        setTempoMapMode: (val: TempoMapMode) => void;
+        setTimeSignatureMapMode: (val: TimeSignatureMapMode) => void;
         setTranspositionSemitones: (val: string) => void;
         setTranspositionOctaves: (val: string) => void;
         setNoteTimeScale: (val: string) => void;
@@ -80,6 +86,7 @@ interface SettingsContextType {
         setMaxVoices: (val: number) => void;
         setDisableChords: (val: boolean) => void;
         setOutputStrategy: (val: OutputStrategy) => void;
+        setDrumGeneration: (val: DrumGenerationOptions) => void;
         setIsModalConversionEnabled: (val: boolean) => void;
         setModalRoot: (val: number) => void;
         setModalModeName: (val: string) => void;
@@ -117,6 +124,8 @@ export const SettingsProvider = ({ children }: { children?: ReactNode }) => {
     const [originalTimeSignature, setOriginalTimeSignature] = useState<{numerator: number, denominator: number} | null>(null);
     const [newTimeSignature, setNewTimeSignature] = useState({numerator: '', denominator: ''});
     const [tempoChangeMode, setTempoChangeMode] = useState<TempoChangeMode>('speed');
+    const [tempoMapMode, setTempoMapMode] = useState<TempoMapMode>('preserve');
+    const [timeSignatureMapMode, setTimeSignatureMapMode] = useState<TimeSignatureMapMode>('preserve');
     const [originalDuration, setOriginalDuration] = useState<number | null>(null);
     const [newDuration, setNewDuration] = useState<number | null>(null);
     const [noteTimeScale, setNoteTimeScale] = useState<string>('1');
@@ -142,6 +151,7 @@ export const SettingsProvider = ({ children }: { children?: ReactNode }) => {
     const [maxVoices, setMaxVoices] = useState<number>(0);
     const [disableChords, setDisableChords] = useState<boolean>(false);
     const [outputStrategy, setOutputStrategy] = useState<OutputStrategy>('combine');
+    const [drumGeneration, setDrumGeneration] = useState<DrumGenerationOptions>({ enabled: false, style: 'cinematic_toms', density: 0.4, intensity: 0.55 });
 
     const [isModalConversionEnabled, setIsModalConversionEnabled] = useState<boolean>(false);
     const [modalRoot, setModalRoot] = useState<number>(0);
@@ -200,6 +210,8 @@ export const SettingsProvider = ({ children }: { children?: ReactNode }) => {
         setOriginalTimeSignature(null);
         setNewTimeSignature({numerator: '', denominator: ''});
         setTempoChangeMode('speed');
+        setTempoMapMode('preserve');
+        setTimeSignatureMapMode('preserve');
         setOriginalDuration(null);
         setNewDuration(null);
         setTranspositionSemitones('0');
@@ -221,6 +233,7 @@ export const SettingsProvider = ({ children }: { children?: ReactNode }) => {
         setMaxVoices(0);
         setDisableChords(false);
         setOutputStrategy('combine');
+        setDrumGeneration({ enabled: false, style: 'cinematic_toms', density: 0.4, intensity: 0.55 });
         setIsModalConversionEnabled(false);
         setModalRoot(0);
         setModalModeName('Major');
@@ -263,6 +276,8 @@ export const SettingsProvider = ({ children }: { children?: ReactNode }) => {
             tempo: parsedTempo,
             timeSignature: { numerator: parsedTsNum, denominator: parsedTsDenom },
             tempoChangeMode,
+            tempoMapMode,
+            timeSignatureMapMode,
             originalTempo,
             transposition: (parsedOctaves * 12) + parsedSemitones,
             noteTimeScale: parseRatio(noteTimeScale),
@@ -289,22 +304,23 @@ export const SettingsProvider = ({ children }: { children?: ReactNode }) => {
             voiceSeparationMaxVoices: maxVoices,
             voiceSeparationDisableChords: disableChords,
             outputStrategy,
+            drumGeneration,
             keySignatureSpelling,
             abcKeyExport
         };
-    }, [newTempo, newTimeSignature, transpositionSemitones, transpositionOctaves, originalTempo, tempoChangeMode, noteTimeScale, inversionMode, melodicInversion, exportRange, primaryRhythm, secondaryRhythm, quantizeDurationMin, shiftToMeasure, detectOrnaments, isModalConversionEnabled, modalRoot, modalModeName, modalMappings, removeShortNotesThresholdIndex, pruneOverlaps, pruneThresholdIndex, softOverlapToleranceIndex, pitchBias, maxVoices, disableChords, outputStrategy, keySignatureSpelling, abcKeyExport]);
+    }, [newTempo, newTimeSignature, transpositionSemitones, transpositionOctaves, originalTempo, tempoChangeMode, tempoMapMode, timeSignatureMapMode, noteTimeScale, inversionMode, melodicInversion, exportRange, primaryRhythm, secondaryRhythm, quantizeDurationMin, shiftToMeasure, detectOrnaments, isModalConversionEnabled, modalRoot, modalModeName, modalMappings, removeShortNotesThresholdIndex, pruneOverlaps, pruneThresholdIndex, softOverlapToleranceIndex, pitchBias, maxVoices, disableChords, outputStrategy, keySignatureSpelling, abcKeyExport, drumGeneration]);
 
     const settingsState: SettingsState = {
-        originalTempo, newTempo, originalTimeSignature, newTimeSignature, tempoChangeMode, originalDuration, newDuration, noteTimeScale,
+        originalTempo, newTempo, originalTimeSignature, newTimeSignature, tempoChangeMode, tempoMapMode, timeSignatureMapMode, originalDuration, newDuration, noteTimeScale,
         transpositionSemitones, transpositionOctaves, inversionMode, melodicInversion, exportRange, detectOrnaments, removeShortNotesThresholdIndex,
         primaryRhythm, secondaryRhythm, quantizeDurationMin, shiftToMeasure, pruneOverlaps, pruneThresholdIndex,
-        softOverlapToleranceIndex, pitchBias, maxVoices, disableChords, outputStrategy,
+        softOverlapToleranceIndex, pitchBias, maxVoices, disableChords, outputStrategy, drumGeneration,
         isModalConversionEnabled, modalRoot, modalModeName, modalMappings, keySignatureSpelling, abcKeyExport, eventsToDelete,
         midiPitchHistogram
     };
 
     const setters = {
-        setNewTempo, setNewTimeSignature, setTempoChangeMode, setTranspositionSemitones, setTranspositionOctaves, setNoteTimeScale,
+        setNewTempo, setNewTimeSignature, setTempoChangeMode, setTempoMapMode, setTimeSignatureMapMode, setTranspositionSemitones, setTranspositionOctaves, setNoteTimeScale,
         setInversionMode, setMelodicInversion, setExportRange, setPrimaryRhythm, setSecondaryRhythm,
         setQuantizationValue: (val: string) => { 
             if (val === 'off') setPrimaryRhythm({ ...primaryRhythm, enabled: false });
@@ -312,7 +328,7 @@ export const SettingsProvider = ({ children }: { children?: ReactNode }) => {
         },
         setQuantizeDurationMin, setShiftToMeasure, setDetectOrnaments, setRemoveShortNotesThresholdIndex,
         setPruneOverlaps, setPruneThresholdIndex, setSoftOverlapToleranceIndex, setPitchBias, setMaxVoices,
-        setDisableChords, setOutputStrategy, setIsModalConversionEnabled, setModalRoot, setModalModeName,
+        setDisableChords, setOutputStrategy, setDrumGeneration, setIsModalConversionEnabled, setModalRoot, setModalModeName,
         setModalMappings, setKeySignatureSpelling, setAbcKeyExport, setEventsToDelete
     };
 

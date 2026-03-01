@@ -1,6 +1,6 @@
 
 import { useState, useCallback, useEffect } from 'react';
-import { ConversionOptions, TempoChangeMode, InversionMode, OutputStrategy, RhythmRule, MelodicInversionOptions, ExportRangeOptions, MidiEventType, AbcKeyExportOptions } from '../types';
+import { ConversionOptions, TempoChangeMode, TempoMapMode, TimeSignatureMapMode, InversionMode, OutputStrategy, RhythmRule, MelodicInversionOptions, ExportRangeOptions, MidiEventType, AbcKeyExportOptions, DrumGenerationOptions } from '../types';
 import { MUSICAL_TIME_OPTIONS } from '../constants';
 import { Midi } from '@tonejs/midi';
 
@@ -19,6 +19,8 @@ export const useConversionSettings = (midiData: Midi | null) => {
     const [originalTimeSignature, setOriginalTimeSignature] = useState<{numerator: number, denominator: number} | null>(null);
     const [newTimeSignature, setNewTimeSignature] = useState({numerator: '', denominator: ''});
     const [tempoChangeMode, setTempoChangeMode] = useState<TempoChangeMode>('speed');
+    const [tempoMapMode, setTempoMapMode] = useState<TempoMapMode>('preserve');
+    const [timeSignatureMapMode, setTimeSignatureMapMode] = useState<TimeSignatureMapMode>('preserve');
     const [originalDuration, setOriginalDuration] = useState<number | null>(null);
     const [newDuration, setNewDuration] = useState<number | null>(null);
     const [noteTimeScale, setNoteTimeScale] = useState<string>('1');
@@ -48,6 +50,7 @@ export const useConversionSettings = (midiData: Midi | null) => {
     const [maxVoices, setMaxVoices] = useState<number>(0); 
     const [disableChords, setDisableChords] = useState<boolean>(false);
     const [outputStrategy, setOutputStrategy] = useState<OutputStrategy>('combine');
+    const [drumGeneration, setDrumGeneration] = useState<DrumGenerationOptions>({ enabled: false, style: 'cinematic_toms', density: 0.4, intensity: 0.55 });
 
     // Key & Mode
     const [isModalConversionEnabled, setIsModalConversionEnabled] = useState<boolean>(false);
@@ -107,6 +110,8 @@ export const useConversionSettings = (midiData: Midi | null) => {
         setOriginalTimeSignature(null);
         setNewTimeSignature({numerator: '', denominator: ''});
         setTempoChangeMode('speed');
+        setTempoMapMode('preserve');
+        setTimeSignatureMapMode('preserve');
         setOriginalDuration(null);
         setNewDuration(null);
         setTranspositionSemitones('0');
@@ -128,6 +133,7 @@ export const useConversionSettings = (midiData: Midi | null) => {
         setMaxVoices(0);
         setDisableChords(false);
         setOutputStrategy('combine');
+        setDrumGeneration({ enabled: false, style: 'cinematic_toms', density: 0.4, intensity: 0.55 });
         setIsModalConversionEnabled(false);
         setModalRoot(0);
         setModalModeName('Major');
@@ -166,6 +172,8 @@ export const useConversionSettings = (midiData: Midi | null) => {
             tempo: parsedTempo,
             timeSignature: { numerator: parsedTsNum, denominator: parsedTsDenom },
             tempoChangeMode,
+            tempoMapMode,
+            timeSignatureMapMode,
             originalTempo,
             transposition: (parsedOctaves * 12) + parsedSemitones,
             noteTimeScale: parseRatio(noteTimeScale),
@@ -192,22 +200,23 @@ export const useConversionSettings = (midiData: Midi | null) => {
             voiceSeparationMaxVoices: maxVoices,
             voiceSeparationDisableChords: disableChords,
             outputStrategy,
+            drumGeneration,
             keySignatureSpelling,
             abcKeyExport
         };
-    }, [newTempo, newTimeSignature, transpositionSemitones, transpositionOctaves, originalTempo, tempoChangeMode, noteTimeScale, inversionMode, melodicInversion, exportRange, primaryRhythm, secondaryRhythm, quantizeDurationMin, shiftToMeasure, detectOrnaments, isModalConversionEnabled, modalRoot, modalModeName, modalMappings, removeShortNotesThresholdIndex, pruneOverlaps, pruneThresholdIndex, softOverlapToleranceIndex, pitchBias, maxVoices, disableChords, outputStrategy, keySignatureSpelling, abcKeyExport, midiData]);
+    }, [newTempo, newTimeSignature, transpositionSemitones, transpositionOctaves, originalTempo, tempoChangeMode, tempoMapMode, timeSignatureMapMode, noteTimeScale, inversionMode, melodicInversion, exportRange, primaryRhythm, secondaryRhythm, quantizeDurationMin, shiftToMeasure, detectOrnaments, isModalConversionEnabled, modalRoot, modalModeName, modalMappings, removeShortNotesThresholdIndex, pruneOverlaps, pruneThresholdIndex, softOverlapToleranceIndex, pitchBias, maxVoices, disableChords, outputStrategy, keySignatureSpelling, abcKeyExport, drumGeneration, midiData]);
 
     return {
         settings: {
-            originalTempo, newTempo, originalTimeSignature, newTimeSignature, tempoChangeMode, originalDuration, newDuration,
+            originalTempo, newTempo, originalTimeSignature, newTimeSignature, tempoChangeMode, tempoMapMode, timeSignatureMapMode, originalDuration, newDuration,
             transpositionSemitones, transpositionOctaves, noteTimeScale, inversionMode, melodicInversion, exportRange,
             primaryRhythm, secondaryRhythm, quantizationValue: primaryRhythm.enabled ? primaryRhythm.minNoteValue : 'off',
             quantizeDurationMin, shiftToMeasure, detectOrnaments, removeShortNotesThresholdIndex, pruneOverlaps,
-            pruneThresholdIndex, softOverlapToleranceIndex, pitchBias, maxVoices, disableChords, outputStrategy,
+            pruneThresholdIndex, softOverlapToleranceIndex, pitchBias, maxVoices, disableChords, outputStrategy, drumGeneration,
             isModalConversionEnabled, modalRoot, modalModeName, modalMappings, keySignatureSpelling, abcKeyExport, eventsToDelete
         },
         setters: {
-            setNewTempo, setNewTimeSignature, setTempoChangeMode, setTranspositionSemitones, setTranspositionOctaves,
+            setNewTempo, setNewTimeSignature, setTempoChangeMode, setTempoMapMode, setTimeSignatureMapMode, setTranspositionSemitones, setTranspositionOctaves,
             setNoteTimeScale, setInversionMode, setMelodicInversion, setExportRange, setPrimaryRhythm, setSecondaryRhythm,
             setQuantizationValue: (val: string) => { 
                 if (val === 'off') setPrimaryRhythm({ ...primaryRhythm, enabled: false });
@@ -215,7 +224,7 @@ export const useConversionSettings = (midiData: Midi | null) => {
             },
             setQuantizeDurationMin, setShiftToMeasure, setDetectOrnaments, setRemoveShortNotesThresholdIndex,
             setPruneOverlaps, setPruneThresholdIndex, setSoftOverlapToleranceIndex, setPitchBias, setMaxVoices,
-            setDisableChords, setOutputStrategy, setIsModalConversionEnabled, setModalRoot, setModalModeName,
+            setDisableChords, setOutputStrategy, setDrumGeneration, setIsModalConversionEnabled, setModalRoot, setModalModeName,
             setModalMappings, setKeySignatureSpelling, setAbcKeyExport, setEventsToDelete
         },
         handleResetSettings,

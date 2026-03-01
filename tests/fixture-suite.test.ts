@@ -4,9 +4,11 @@ import type { ConversionOptions, RawNote, RhythmRule } from '../types';
 import { applyShadowQuantization } from '../components/services/shadowQuantizer';
 import { detectAndTagOrnaments } from '../components/services/midiCore';
 import { distributeToVoices } from '../components/services/midiVoices';
-import { resolveExportOptions } from '../components/services/midiPipeline';
+import { resolveExportOptions, createPreviewMidi } from '../components/services/midiPipeline';
 import { renderMidiToAbc } from '../components/services/midiAbc';
 import { performModalConversion, getTransformedNotes } from '../components/services/midiTransform';
+import { detectStructuralRhythm } from '../components/services/rhythm/structuralRhythm';
+import { generateDrumNotesFromRhythm } from '../components/services/rhythm/drumPatternGenerator';
 
 const PPQ = 480;
 const primarySimple: RhythmRule = { enabled: true, family: 'Simple', minNoteValue: '1/16' };
@@ -21,6 +23,8 @@ function withBaseOptions(partial: Partial<ConversionOptions> = {}): ConversionOp
     tempo: 120,
     timeSignature: { numerator: 4, denominator: 4 },
     tempoChangeMode: 'speed',
+    tempoMapMode: 'preserve',
+    timeSignatureMapMode: 'preserve',
     originalTempo: 120,
     transposition: 0,
     noteTimeScale: 1,
@@ -44,6 +48,7 @@ function withBaseOptions(partial: Partial<ConversionOptions> = {}): ConversionOp
     outputStrategy: 'separate_voices',
     keySignatureSpelling: 'auto',
     abcKeyExport: { enabled: false, tonicLetter: 'C', tonicAccidental: '=', mode: 'maj', additionalAccidentals: [] },
+    drumGeneration: { enabled: false, style: 'cinematic_toms', density: 0.4, intensity: 0.55 },
     ...partial
   };
 }
@@ -129,6 +134,32 @@ export function runFixtureSuite() {
   const modalDirect = performModalConversion(modalInput, dorianOpts).map(n => n.midi);
   const modalViaTransform = getTransformedNotes(modalInput, dorianOpts, PPQ).map(n => n.midi);
 
+
+
+  const mapMidi = new Midi();
+  mapMidi.header.tempos = [{ ticks: 0, bpm: 100 }, { ticks: 480, bpm: 140 }, { ticks: 960, bpm: 110 }];
+  mapMidi.header.timeSignatures = [{ ticks: 0, timeSignature: [4, 4] }, { ticks: 960, timeSignature: [3, 4] }];
+  const mapTrack = mapMidi.addTrack();
+  [0, 480, 960, 1440].forEach((t, i) => mapTrack.addNote({ midi: 48 + i, ticks: t, durationTicks: 360, velocity: 0.8 }));
+
+  const preservePreview = createPreviewMidi(mapMidi, 0, new Set(), withBaseOptions());
+  const scaledPreview = createPreviewMidi(mapMidi, 0, new Set(), withBaseOptions({ tempo: 120, tempoMapMode: 'scale' }));
+  const constantPreview = createPreviewMidi(mapMidi, 0, new Set(), withBaseOptions({ tempo: 132, tempoMapMode: 'constant', timeSignatureMapMode: 'constant', timeSignature: { numerator: 5, denominator: 4 } }));
+
+  const rhythmInput = [
+    note(72, 0, 60), note(48, 0, 300),
+    note(74, 300, 60), note(50, 360, 300),
+    note(76, 660, 60), note(52, 720, 300)
+  ];
+  const skeleton = detectStructuralRhythm(rhythmInput as any[], PPQ, { detectOrnaments: false, minInterOnsetTicks: 24 });
+  const drumStyles = ['four_on_floor', 'martial', 'timpani_melodic', 'cinematic_toms', 'electro_pulse'] as const;
+  const drumsByStyle = Object.fromEntries(
+    drumStyles.map(style => [
+      style,
+      generateDrumNotesFromRhythm(skeleton, { enabled: true, style, density: 0.6, intensity: 0.7 }, PPQ)
+    ])
+  );
+
   const quantSplit = {
     midiDefault: resolveExportOptions(withBaseOptions(), 'midi').debug,
     abcDefault: resolveExportOptions(withBaseOptions(), 'abc').debug,
@@ -157,7 +188,22 @@ export function runFixtureSuite() {
       phr: abcCustomPhr.split('\n').find(line => line.startsWith('K:')) || '',
       mixolydian: abcCustomMix.split('\n').find(line => line.startsWith('K:')) || ''
     },
-    modalConversion: { direct: modalDirect, viaGetTransformedNotes: modalViaTransform }
+    modalConversion: { direct: modalDirect, viaGetTransformedNotes: modalViaTransform },
+    timelineMaps: {
+      preserveTempoTicks: preservePreview.header.tempos.map(t => ({ ticks: t.ticks, bpm: Math.round(t.bpm) })),
+      preserveTimeSignatures: preservePreview.header.timeSignatures.map(ts => ({ ticks: ts.ticks, sig: ts.timeSignature })),
+      scaledTempoTicks: scaledPreview.header.tempos.map(t => ({ ticks: t.ticks, bpm: Math.round(t.bpm) })),
+      constantTempoTicks: constantPreview.header.tempos.map(t => ({ ticks: t.ticks, bpm: Math.round(t.bpm) })),
+      constantTimeSignatures: constantPreview.header.timeSignatures.map(ts => ({ ticks: ts.ticks, sig: ts.timeSignature }))
+    },
+    structuralRhythm: {
+      ticks: skeleton.map(e => e.ticks),
+      sourceMidi: skeleton.map(e => e.sourceNoteMidi)
+    },
+    generatedDrums: Object.fromEntries(Object.entries(drumsByStyle).map(([style, notes]) => [style, {
+      count: notes.length,
+      uniqueMidi: Array.from(new Set(notes.map(n => n.midi))).sort((a, b) => a - b)
+    }]))
   };
 }
 

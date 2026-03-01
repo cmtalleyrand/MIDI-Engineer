@@ -14,10 +14,10 @@ export default function TempoTimeSettings() {
     const { settings, setters } = useSettings();
     const { 
         originalTempo, newTempo, originalTimeSignature, newTimeSignature, 
-        tempoChangeMode, originalDuration, newDuration, exportRange 
+        tempoChangeMode, tempoMapMode, timeSignatureMapMode, originalDuration, newDuration, exportRange 
     } = settings;
     const { 
-        setNewTempo, setNewTimeSignature, setTempoChangeMode, setExportRange 
+        setNewTempo, setNewTimeSignature, setTempoChangeMode, setTempoMapMode, setTimeSignatureMapMode, setExportRange 
     } = setters;
 
     const handleTimeSigChange = (part: 'numerator' | 'denominator', val: string) => {
@@ -56,6 +56,27 @@ export default function TempoTimeSettings() {
                     </p>
                 </div>
             )}
+
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-1">Tempo Map</label>
+                    <select value={tempoMapMode} onChange={(e) => setTempoMapMode(e.target.value as any)} className="block w-full bg-gray-darker border border-gray-medium rounded-md py-2 px-3 text-sm text-gray-light">
+                        <option value="preserve">Preserve Source Tempo Changes</option>
+                        <option value="scale">Scale Source Tempo Map to New BPM</option>
+                        <option value="constant">Force Constant Tempo (new BPM)</option>
+                    </select>
+                    <p className="text-xs text-gray-500 mt-2">Preserve keeps original tempo changes. Scale keeps contour but converts to the new BPM target.</p>
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-1">Meter Map</label>
+                    <select value={timeSignatureMapMode} onChange={(e) => setTimeSignatureMapMode(e.target.value as any)} className="block w-full bg-gray-darker border border-gray-medium rounded-md py-2 px-3 text-sm text-gray-light">
+                        <option value="preserve">Preserve Source Meter Changes</option>
+                        <option value="constant">Force Constant Meter</option>
+                    </select>
+                    <p className="text-xs text-gray-500 mt-2">Preserve retains all time signature changes from the source.</p>
+                </div>
+            </div>
+
             <div className="mt-4">
                 <label className="block text-sm font-medium text-gray-400 mb-2">Tempo Change Mode</label>
                 <div className="flex flex-col sm:flex-row gap-3">

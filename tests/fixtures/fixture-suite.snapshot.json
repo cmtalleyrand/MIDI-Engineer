@@ -224,7 +224,138 @@
     "mixolydian": "K:D maj =c"
   },
   "modalConversion": {
-    "direct": [60, 62, 63, 65, 67, 69, 70],
-    "viaGetTransformedNotes": [60, 62, 63, 65, 67, 69, 70]
+    "direct": [
+      60,
+      62,
+      63,
+      65,
+      67,
+      69,
+      70
+    ],
+    "viaGetTransformedNotes": [
+      60,
+      62,
+      63,
+      65,
+      67,
+      69,
+      70
+    ]
+  },
+  "timelineMaps": {
+    "preserveTempoTicks": [
+      {
+        "ticks": 0,
+        "bpm": 100
+      },
+      {
+        "ticks": 480,
+        "bpm": 140
+      },
+      {
+        "ticks": 960,
+        "bpm": 110
+      }
+    ],
+    "preserveTimeSignatures": [
+      {
+        "ticks": 0,
+        "sig": [
+          4,
+          4
+        ]
+      },
+      {
+        "ticks": 960,
+        "sig": [
+          3,
+          4
+        ]
+      }
+    ],
+    "scaledTempoTicks": [
+      {
+        "ticks": 0,
+        "bpm": 120
+      },
+      {
+        "ticks": 480,
+        "bpm": 168
+      },
+      {
+        "ticks": 960,
+        "bpm": 132
+      }
+    ],
+    "constantTempoTicks": [
+      {
+        "ticks": 0,
+        "bpm": 132
+      }
+    ],
+    "constantTimeSignatures": [
+      {
+        "ticks": 0,
+        "sig": [
+          5,
+          4
+        ]
+      }
+    ]
+  },
+  "structuralRhythm": {
+    "ticks": [
+      0,
+      300,
+      360,
+      660,
+      720
+    ],
+    "sourceMidi": [
+      48,
+      74,
+      50,
+      76,
+      52
+    ]
+  },
+  "generatedDrums": {
+    "four_on_floor": {
+      "count": 7,
+      "uniqueMidi": [
+        36,
+        39
+      ]
+    },
+    "martial": {
+      "count": 12,
+      "uniqueMidi": [
+        36,
+        38
+      ]
+    },
+    "timpani_melodic": {
+      "count": 5,
+      "uniqueMidi": [
+        41,
+        45
+      ]
+    },
+    "cinematic_toms": {
+      "count": 6,
+      "uniqueMidi": [
+        41,
+        45
+      ]
+    },
+    "electro_pulse": {
+      "count": 16,
+      "uniqueMidi": [
+        36,
+        39,
+        42
+      ]
+    }
   }
 }
