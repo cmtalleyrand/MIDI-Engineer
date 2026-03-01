@@ -28,7 +28,7 @@ export default function VoiceSettings() {
                         />
                         <span className="text-xs font-mono text-brand-primary w-16 text-right">{MUSICAL_TIME_OPTIONS[softOverlapToleranceIndex].label}</span>
                     </div>
-                    <p className="text-xs text-gray-500 mt-2">Defines how much two notes can overlap before being considered sequential neighbors; chord detection can still be conservative by design.</p>
+                    <p className="text-xs text-gray-500 mt-2">Defines how much two notes can overlap in time before they are considered a chord. Increase this for sloppy or legato playing.</p>
                 </div>
 
                 <div className="mb-4">
@@ -48,6 +48,23 @@ export default function VoiceSettings() {
                     <p className="text-xs text-gray-500 mt-2">Controls the voice tracking logic. <br/><strong>Smooth:</strong> Prefers connecting notes closest in pitch (horizontal). <br/><strong>Strict:</strong> Prefers grouping notes starting at the exact same time (vertical).</p>
                 </div>
 
+
+
+                <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Orphan Threshold</label>
+                    <div className="flex items-center gap-4 bg-gray-900 p-3 rounded-lg border border-gray-700">
+                        <input
+                            type="range"
+                            min="0" max="500" step="5"
+                            value={orphanThreshold}
+                            onChange={(e) => setOrphanThreshold(Number(e.target.value))}
+                            className="flex-grow h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-brand-primary"
+                        />
+                        <span className="text-xs font-mono text-brand-primary w-16 text-right">{orphanThreshold}</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">Maximum continuity/crossing cost before a note is forced to orphan lane. Default 120.</p>
+                </div>
+
                 <div className="flex flex-col sm:flex-row gap-4 mb-2">
                     <div className="flex-1">
                         <label className="block text-sm font-medium text-gray-300 mb-2">Max Voices</label>
@@ -60,18 +77,6 @@ export default function VoiceSettings() {
                             <span className="text-xs font-mono text-gray-400">{maxVoices === 0 ? "(Auto)" : `Force ${maxVoices}`}</span>
                         </div>
                         <p className="text-xs text-gray-500 mt-1">Limits the number of output voices.</p>
-                    </div>
-                    <div className="flex-1">
-                        <label className="block text-sm font-medium text-gray-300 mb-2">Orphan Threshold</label>
-                        <div className="flex items-center gap-3">
-                            <input
-                                type="number" min="0" max="500" step="5" value={orphanThreshold}
-                                onChange={(e) => setOrphanThreshold(Math.max(0, parseInt(e.target.value) || 0))}
-                                className="w-24 bg-gray-900 border border-gray-700 rounded-md py-2 px-3 text-center focus:ring-brand-primary focus:border-brand-primary text-gray-light"
-                            />
-                            <span className="text-xs font-mono text-gray-400">Higher = fewer orphans</span>
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1">Maximum continuity/crossing cost before a note is forced to orphan lane.</p>
                     </div>
                     <div className="flex-1 flex items-end">
                         <label className="flex items-center p-2 bg-gray-900 rounded-lg border border-gray-700 cursor-pointer w-full">
