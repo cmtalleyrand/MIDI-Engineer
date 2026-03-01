@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { CHROMATIC_NAMES } from '../services/musicTheory';
 import { useSettings } from '../../context/SettingsContext';
 
@@ -14,6 +14,11 @@ const MODES = {
     'Locrian': [0, 1, 3, 5, 6, 8, 10],
     'Chromatic': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 };
+
+const ABC_MODES = ['maj', 'min', 'dor', 'phr', 'lyd', 'mix', 'loc'];
+const ABC_ACCIDENTALS = ['__', '_', '=', '^', '^^'] as const;
+const ABC_TONIC_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'] as const;
+const ABC_NOTE_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'] as const;
 
 const getDegreeLabel = (interval: number, modeIntervals: number[]) => {
     const degreeIndex = modeIntervals.indexOf(interval);
@@ -40,13 +45,23 @@ const getNoteName = (root: number, interval: number) => CHROMATIC_NAMES[(root + 
 export default function KeyModeSettings() {
     const { settings, setters } = useSettings();
     const {
-        modalRoot, modalModeName, isModalConversionEnabled, modalMappings, keySignatureSpelling
+        modalRoot, modalModeName, isModalConversionEnabled, modalMappings, keySignatureSpelling, abcKeyExport, midiPitchHistogram
     } = settings;
     const {
-        setModalRoot, setModalModeName, setIsModalConversionEnabled, setModalMappings, setKeySignatureSpelling
+        setModalRoot, setModalModeName, setIsModalConversionEnabled, setModalMappings, setKeySignatureSpelling, setAbcKeyExport
     } = setters;
 
     const modeIntervals = MODES[modalModeName as keyof typeof MODES] || MODES['Major'];
+
+    const outputHistogram = useMemo(() => {
+        if (!midiPitchHistogram) return null;
+        const out: Record<number, number> = {};
+        for (let i = 0; i < 12; i++) {
+            const target = modalMappings[i] ?? i;
+            out[target] = (out[target] || 0) + (midiPitchHistogram[(modalRoot + i) % 12] || 0);
+        }
+        return out;
+    }, [midiPitchHistogram, modalRoot, modalMappings]);
 
     return (
         <div className="border-t border-gray-medium pt-4">
@@ -78,6 +93,118 @@ export default function KeyModeSettings() {
                         </select>
                     </div>
                 </div>
+
+                <div className="mt-4 p-3 border border-gray-700 rounded-md bg-gray-900/40">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <span className="text-sm font-medium text-gray-300">Set your own export key (K:)</span>
+                            <p className="text-xs text-gray-500 mt-1">Choose tonic, mode and additional accidentals using ABC key syntax.</p>
+                        </div>
+                        <label className="flex items-center cursor-pointer">
+                            <input
+                                type="checkbox"
+                                className="sr-only"
+                                checked={abcKeyExport.enabled}
+                                onChange={(e) => setAbcKeyExport({ ...abcKeyExport, enabled: e.target.checked })}
+                            />
+                            <div className={`block w-10 h-6 rounded-full transition-colors ${abcKeyExport.enabled ? 'bg-brand-primary' : 'bg-gray-700'}`}></div>
+                        </label>
+                    </div>
+
+                    {abcKeyExport.enabled && (
+                        <div className="mt-3 space-y-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-400 mb-1">Tonic Letter</label>
+                                    <select
+                                        value={abcKeyExport.tonicLetter}
+                                        onChange={(e) => setAbcKeyExport({ ...abcKeyExport, tonicLetter: e.target.value as typeof ABC_TONIC_LETTERS[number] })}
+                                        className="block w-full bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-gray-light"
+                                    >
+                                        {ABC_TONIC_LETTERS.map(letter => <option key={letter} value={letter}>{letter}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-400 mb-1">Tonic Accidental</label>
+                                    <select
+                                        value={abcKeyExport.tonicAccidental}
+                                        onChange={(e) => setAbcKeyExport({ ...abcKeyExport, tonicAccidental: e.target.value as typeof ABC_ACCIDENTALS[number] })}
+                                        className="block w-full bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-gray-light"
+                                    >
+                                        {ABC_ACCIDENTALS.map(acc => <option key={acc} value={acc}>{acc}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-400 mb-1">Mode</label>
+                                    <select
+                                        value={abcKeyExport.mode}
+                                        onChange={(e) => setAbcKeyExport({ ...abcKeyExport, mode: e.target.value })}
+                                        className="block w-full bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-gray-light"
+                                    >
+                                        {ABC_MODES.map(mode => <option key={mode} value={mode}>{mode}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <div className="flex items-center justify-between mb-2">
+                                    <label className="block text-xs font-medium text-gray-400">Additional accidentals</label>
+                                    <button
+                                        type="button"
+                                        className="text-xs px-2 py-1 rounded bg-gray-700 hover:bg-gray-600"
+                                        onClick={() => setAbcKeyExport({
+                                            ...abcKeyExport,
+                                            additionalAccidentals: [...abcKeyExport.additionalAccidentals, { accidental: '^', letter: 'f' }]
+                                        })}
+                                    >
+                                        + Add accidental
+                                    </button>
+                                </div>
+
+                                <div className="space-y-2">
+                                    {abcKeyExport.additionalAccidentals.map((item, index) => (
+                                        <div key={`${item.letter}-${index}`} className="grid grid-cols-[1fr_1fr_auto] gap-2">
+                                            <select
+                                                value={item.letter}
+                                                onChange={(e) => {
+                                                    const next = [...abcKeyExport.additionalAccidentals];
+                                                    next[index] = { ...next[index], letter: e.target.value as typeof ABC_NOTE_LETTERS[number] };
+                                                    setAbcKeyExport({ ...abcKeyExport, additionalAccidentals: next });
+                                                }}
+                                                className="bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-gray-light"
+                                            >
+                                                {ABC_NOTE_LETTERS.map(letter => <option key={letter} value={letter}>{letter}</option>)}
+                                            </select>
+                                            <select
+                                                value={item.accidental}
+                                                onChange={(e) => {
+                                                    const next = [...abcKeyExport.additionalAccidentals];
+                                                    next[index] = { ...next[index], accidental: e.target.value as typeof ABC_ACCIDENTALS[number] };
+                                                    setAbcKeyExport({ ...abcKeyExport, additionalAccidentals: next });
+                                                }}
+                                                className="bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-gray-light"
+                                            >
+                                                {ABC_ACCIDENTALS.map(acc => <option key={acc} value={acc}>{acc}</option>)}
+                                            </select>
+                                            <button
+                                                type="button"
+                                                className="px-2 py-1 rounded bg-red-900/40 hover:bg-red-900/60 text-red-200"
+                                                onClick={() => {
+                                                    setAbcKeyExport({
+                                                        ...abcKeyExport,
+                                                        additionalAccidentals: abcKeyExport.additionalAccidentals.filter((_, i) => i !== index)
+                                                    });
+                                                }}
+                                            >
+                                                Remove
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
                 
                 <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-700">
                     <div>
@@ -96,13 +223,26 @@ export default function KeyModeSettings() {
                     <div className="mt-4 overflow-x-auto animate-fade-in">
                         <table className="w-full text-sm text-left text-gray-400">
                             <thead>
-                                <tr><th className="px-4 py-2">Source</th><th></th><th className="px-4 py-2">Target</th></tr>
+                                <tr>
+                                    <th className="px-4 py-2">Source</th>
+                                    {midiPitchHistogram && <th className="px-2 py-2 text-xs text-gray-500 text-right">In</th>}
+                                    <th></th>
+                                    <th className="px-4 py-2">Target</th>
+                                    {midiPitchHistogram && <th className="px-2 py-2 text-xs text-gray-500 text-right">Out</th>}
+                                </tr>
                             </thead>
                             <tbody>
                                 {Array.from({ length: 12 }).map((_, i) => (
                                     <tr key={i} className={`border-b border-gray-700 ${modeIntervals.includes(i) ? 'bg-gray-800/50' : ''}`}>
                                         <td className="px-4 py-2 font-medium">{getNoteName(modalRoot, i)} <span className="text-xs text-gray-500">({getDegreeLabel(i, modeIntervals)})</span></td>
-                                        <td className="text-center">→</td>
+                                        {midiPitchHistogram && (
+                                            <td className="px-2 py-2 text-right">
+                                                <span className={`text-xs font-mono ${(midiPitchHistogram[(modalRoot + i) % 12] || 0) > 0 ? 'text-blue-400' : 'text-gray-600'}`}>
+                                                    {midiPitchHistogram[(modalRoot + i) % 12] || 0}
+                                                </span>
+                                            </td>
+                                        )}
+                                        <td className="text-center text-gray-500">→</td>
                                         <td className="px-4 py-2">
                                             <select
                                                 value={modalMappings[i] ?? i}
@@ -114,10 +254,30 @@ export default function KeyModeSettings() {
                                                 ))}
                                             </select>
                                         </td>
+                                        {midiPitchHistogram && outputHistogram && (
+                                            <td className="px-2 py-2 text-right">
+                                                <span className={`text-xs font-mono ${(outputHistogram[modalMappings[i] ?? i] || 0) > 0 ? 'text-green-400' : 'text-gray-600'}`}>
+                                                    {outputHistogram[modalMappings[i] ?? i] || 0}
+                                                </span>
+                                            </td>
+                                        )}
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
+                        {midiPitchHistogram && (
+                            <div className="mt-3 px-2 text-xs text-gray-500">
+                                {(() => {
+                                    const moved = Array.from({ length: 12 }, (_, i) => i)
+                                        .filter(i => (modalMappings[i] ?? i) !== i)
+                                        .reduce((sum, i) => sum + (midiPitchHistogram[(modalRoot + i) % 12] || 0), 0);
+                                    const total = Object.values(midiPitchHistogram).reduce((a, b) => a + b, 0);
+                                    return moved > 0
+                                        ? <span className="text-yellow-500">{moved} of {total} notes will be remapped</span>
+                                        : <span>No notes remapped (all mappings are identity)</span>;
+                                })()}
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

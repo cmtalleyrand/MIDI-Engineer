@@ -2,6 +2,7 @@
 import React, { useRef, useEffect, useState, useLayoutEffect } from 'react';
 import { PianoRollTrackData, VoiceExplanation, VoiceAllocationMath } from '../types';
 import { getVoiceLabel } from './services/midiVoices';
+import { canSelectPianoRollNote, sortNotesForPianoRollRendering } from './services/pianoRollUtils';
 import { CloseIcon } from './Icons';
 
 interface PianoRollProps {
@@ -77,6 +78,7 @@ const PianoRoll: React.FC<PianoRollProps> = ({ trackData }) => {
   const [showVoices, setShowVoices] = useState(false);
   const [showQuantizerRationale, setShowQuantizerRationale] = useState(false);
   const [selectedNote, setSelectedNote] = useState<any | null>(null);
+  const canSelectNoteForDetails = canSelectPianoRollNote(showVoices, showQuantizerRationale);
   
   // Calculate max voice count for labeling
   const maxVoiceIdx = notes.reduce((max, n) => Math.max(max, n.voiceIndex ?? -1), -1);
@@ -106,6 +108,12 @@ const PianoRoll: React.FC<PianoRollProps> = ({ trackData }) => {
         }
     }
   };
+
+  useEffect(() => {
+    if (!canSelectNoteForDetails) {
+      setSelectedNote(null);
+    }
+  }, [canSelectNoteForDetails]);
 
   if (!notes || notes.length === 0) {
     return <div className="flex items-center justify-center h-full text-gray-400">No notes to display.</div>;
@@ -224,62 +232,66 @@ const PianoRoll: React.FC<PianoRollProps> = ({ trackData }) => {
                </div>
                
                <div className="space-y-2 max-h-[60vh] overflow-y-auto">
-                   <div>
-                       <span className="text-xs text-gray-500 uppercase font-bold">Assigned Voice</span>
-                       <div className="flex items-center gap-2 mt-1">
-                            <span 
-                                className="w-4 h-4 rounded-sm inline-block"
-                                style={{ backgroundColor: selectedNote.voiceIndex >= 0 ? VOICE_COLORS[selectedNote.voiceIndex % VOICE_COLORS.length] : (selectedNote.voiceIndex === -1 ? '#fff' : 'transparent') }}
-                            ></span>
-                            <div className="flex items-baseline gap-2">
-                                <p className="font-bold text-white text-2xl">
-                                    {getShortVoiceLabel(selectedNote.voiceIndex, totalVoices)} 
-                                </p>
-                                <span className="text-xs font-normal text-gray-500">
-                                    ({getVoiceLabel(selectedNote.voiceIndex, totalVoices)})
-                                </span>
-                            </div>
-                       </div>
-                   </div>
-                   
-                   {selectedNote.explanation ? (
-                       <div className="mt-3">
-                           <span className="text-xs text-gray-500 uppercase font-bold block mb-1">Decision Logic</span>
-                           <div className="bg-gray-900 rounded p-2 text-xs font-mono border border-gray-700">
-                               <p className="text-yellow-500 font-bold mb-1">{selectedNote.explanation.phase}</p>
-                               {selectedNote.explanation.text && <p className="mb-2 whitespace-pre-wrap leading-relaxed">{selectedNote.explanation.text}</p>}
-                               
-                               {/* Render Detailed Math Table for Phase 1 */}
-                               {selectedNote.explanation.math && (
-                                   <MathTable math={selectedNote.explanation.math} currentNoteMidi={selectedNote.midi} />
-                               )}
-
-                               {/* Render Cost List for Phase 2 */}
-                               {selectedNote.explanation.costs && (
-                                   <div className="space-y-1 mt-2">
-                                       {selectedNote.explanation.costs.map((c: any, idx: number) => {
-                                            const voiceName = getVoiceLabel(selectedNote.explanation.winner, totalVoices);
-                                            // Fallback logic to check if this row represents the winning voice
-                                            const isWinner = c.voice === voiceName || (typeof c.voice === 'string' && c.voice.includes(getVoiceLabel(selectedNote.explanation.winner, totalVoices)));
-                                            
-                                            return (
-                                               <div key={idx} className={`flex justify-between ${isWinner ? 'text-green-400 font-bold bg-green-900/20 px-1 rounded' : 'text-gray-400'}`}>
-                                                   <span>{c.voice}:</span>
-                                                   <div className="text-right">
-                                                       <span>{c.cost}</span>
-                                                       <span className="block text-[10px] opacity-70">{c.details}</span>
-                                                   </div>
-                                               </div>
-                                           );
-                                       })}
-                                   </div>
-                               )}
-                               
-                               {selectedNote.explanation.reason && <p className="text-red-400">{selectedNote.explanation.reason}</p>}
+                   {showVoices && (
+                       <>
+                           <div>
+                               <span className="text-xs text-gray-500 uppercase font-bold">Assigned Voice</span>
+                               <div className="flex items-center gap-2 mt-1">
+                                    <span 
+                                        className="w-4 h-4 rounded-sm inline-block"
+                                        style={{ backgroundColor: selectedNote.voiceIndex >= 0 ? VOICE_COLORS[selectedNote.voiceIndex % VOICE_COLORS.length] : (selectedNote.voiceIndex === -1 ? '#fff' : 'transparent') }}
+                                    ></span>
+                                    <div className="flex items-baseline gap-2">
+                                        <p className="font-bold text-white text-2xl">
+                                            {getShortVoiceLabel(selectedNote.voiceIndex, totalVoices)} 
+                                        </p>
+                                        <span className="text-xs font-normal text-gray-500">
+                                            ({getVoiceLabel(selectedNote.voiceIndex, totalVoices)})
+                                        </span>
+                                    </div>
+                               </div>
                            </div>
-                       </div>
-                   ) : (
-                       <p className="text-gray-500 italic text-xs mt-2">No detailed explanation available (Logic was run before logging enabled or note is raw).</p>
+                           
+                           {selectedNote.explanation ? (
+                               <div className="mt-3">
+                                   <span className="text-xs text-gray-500 uppercase font-bold block mb-1">Decision Logic</span>
+                                   <div className="bg-gray-900 rounded p-2 text-xs font-mono border border-gray-700">
+                                       <p className="text-yellow-500 font-bold mb-1">{selectedNote.explanation.phase}</p>
+                                       {selectedNote.explanation.text && <p className="mb-2 whitespace-pre-wrap leading-relaxed">{selectedNote.explanation.text}</p>}
+                                       
+                                       {/* Render Detailed Math Table for Phase 1 */}
+                                       {selectedNote.explanation.math && (
+                                           <MathTable math={selectedNote.explanation.math} currentNoteMidi={selectedNote.midi} />
+                                       )}
+
+                                       {/* Render Cost List for Phase 2 */}
+                                       {selectedNote.explanation.costs && (
+                                           <div className="space-y-1 mt-2">
+                                               {selectedNote.explanation.costs.map((c: any, idx: number) => {
+                                                    const voiceName = getVoiceLabel(selectedNote.explanation.winner, totalVoices);
+                                                    // Fallback logic to check if this row represents the winning voice
+                                                    const isWinner = c.voice === voiceName || (typeof c.voice === 'string' && c.voice.includes(getVoiceLabel(selectedNote.explanation.winner, totalVoices)));
+                                                    
+                                                    return (
+                                                       <div key={idx} className={`flex justify-between ${isWinner ? 'text-green-400 font-bold bg-green-900/20 px-1 rounded' : 'text-gray-400'}`}>
+                                                           <span>{c.voice}:</span>
+                                                           <div className="text-right">
+                                                               <span>{c.cost}</span>
+                                                               <span className="block text-[10px] opacity-70">{c.details}</span>
+                                                           </div>
+                                                       </div>
+                                                   );
+                                               })}
+                                           </div>
+                                       )}
+                                       
+                                       {selectedNote.explanation.reason && <p className="text-red-400">{selectedNote.explanation.reason}</p>}
+                                   </div>
+                               </div>
+                           ) : (
+                               <p className="text-gray-500 italic text-xs mt-2">No detailed explanation available (Logic was run before logging enabled or note is raw).</p>
+                           )}
+                       </>
                    )}
 
                    {!showQuantizerRationale && selectedNote.shadowDecision && (
@@ -301,7 +313,11 @@ const PianoRoll: React.FC<PianoRollProps> = ({ trackData }) => {
                                    <div>confidence-edit={selectedNote.shadowDecision.objectiveBreakdown.confidenceAwareEdit.toFixed(2)}</div>
                                </div>
                                {selectedNote.shadowDecision.conflictTypes.length > 0 && (
-                                   <p className="text-yellow-400">Conflicts: {selectedNote.shadowDecision.conflictTypes.join(', ')}</p>
+                                   <p className="text-yellow-400">Conflicts: {selectedNote.shadowDecision.conflictTypes.map((type: string) => ({
+                                       type1_unison_overlap: 'Type 1: unison overlap',
+                                       type2_polyphony_blip: 'Type 2: polyphony blip',
+                                       type3_contextual_rhythm: 'Type 3: contextual rhythm'
+                                   }[type] ?? type)).join(', ')}</p>
                                )}
                                {selectedNote.shadowDecision.accommodationApplied && (
                                    <p className="text-green-400">Accommodation: {selectedNote.shadowDecision.accommodationApplied.shortenedFrom} → {selectedNote.shadowDecision.accommodationApplied.shortenedTo}</p>
@@ -426,7 +442,7 @@ const PianoRoll: React.FC<PianoRollProps> = ({ trackData }) => {
                 ))}
 
                 {/* Notes */}
-                {notes.map((note, idx) => {
+                {sortNotesForPianoRollRendering(notes).map((note, idx) => {
                     // Determine Color
                     let noteColor = '#14b8a6'; // Default Teal
                     let strokeColor = '#0f766e';
@@ -435,8 +451,10 @@ const PianoRoll: React.FC<PianoRollProps> = ({ trackData }) => {
                     const isSelected = selectedNote === note;
 
                     if (note.isOrnament) {
-                        opacity = 0.6; // Fade out ornaments
-                        strokeColor = 'rgba(255,255,255,0.3)';
+                        noteColor = '#f59e0b'; // Highlight ornaments with amber
+                        opacity = 0.95;
+                        strokeColor = '#fde68a';
+                        dashArray = '3,2';
                     }
 
                     if (showVoices && note.voiceIndex !== undefined) {
@@ -468,9 +486,10 @@ const PianoRoll: React.FC<PianoRollProps> = ({ trackData }) => {
                             stroke={isSelected ? '#ffffff' : strokeColor}
                             strokeWidth={isSelected ? 2 : (note.voiceIndex === -1 && showVoices ? 2 : 1)}
                             strokeDasharray={dashArray}
-                            className="hover:opacity-80 transition-opacity cursor-pointer"
+                            className={`hover:opacity-80 transition-opacity ${canSelectNoteForDetails ? 'cursor-pointer' : 'cursor-default'}`}
                             onClick={(e) => {
                                 e.stopPropagation();
+                                if (!canSelectNoteForDetails) return;
                                 setSelectedNote(note);
                             }}
                         >

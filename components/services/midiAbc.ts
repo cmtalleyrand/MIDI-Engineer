@@ -31,7 +31,7 @@ export function renderMidiToAbc(midi: Midi, fileName: string, options: Conversio
     const lUnit = determineBestLUnit(allNotes, ppq);
     
     // --- KEY SIGNATURE LOGIC ---
-    const { scaleMap, keyString, preferFlats } = analyzeScale(options.modalConversion.root, options.modalConversion.modeName, options.keySignatureSpelling);
+    const { scaleMap, keyString, preferFlats } = analyzeScale(options.modalConversion.root, options.modalConversion.modeName, options.keySignatureSpelling, options.abcKeyExport);
 
     let abc = `X:1\nT:${fileName.replace(/\.abc$/i, '')}\nM:${ts[0]}/${ts[1]}\nL:${lUnit.str}\nQ:1/4=${Math.round(midi.header.tempos[0]?.bpm || 120)}\n`;
     if (options.modalConversion.root === 0 && options.modalConversion.modeName === 'Major') {
@@ -95,11 +95,13 @@ export function renderMidiToAbc(midi: Midi, fileName: string, options: Conversio
                         if (e.type === 'rest') {
                              mStr += `z${durStr} `;
                         } else if (e.notes) {
-                             const notesStr = e.notes.map(n => getAbcPitch(n.midi, scaleMap, preferFlats) + (n.tied ? '-' : '')).join('');
+                             const notesStr = e.notes.map(n => getAbcPitch(n.midi, scaleMap, preferFlats)).join('');
                              if (e.notes.length > 1) {
-                                 mStr += `[${notesStr}]${durStr} `;
+                                 const chordTie = e.notes.some(n => n.tied) ? '-' : '';
+                                 mStr += `[${notesStr}]${durStr}${chordTie} `;
                              } else {
-                                 mStr += `${notesStr}${durStr} `;
+                                 const tieSuffix = e.notes[0].tied ? '-' : '';
+                                 mStr += `${notesStr}${durStr}${tieSuffix} `;
                              }
                         }
                     });

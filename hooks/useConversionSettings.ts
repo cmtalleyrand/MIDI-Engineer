@@ -1,8 +1,16 @@
 
 import { useState, useCallback, useEffect } from 'react';
-import { ConversionOptions, TempoChangeMode, InversionMode, OutputStrategy, RhythmRule, MelodicInversionOptions, ExportRangeOptions, MidiEventType } from '../types';
+import { ConversionOptions, TempoChangeMode, InversionMode, OutputStrategy, RhythmRule, MelodicInversionOptions, ExportRangeOptions, MidiEventType, AbcKeyExportOptions } from '../types';
 import { MUSICAL_TIME_OPTIONS } from '../constants';
 import { Midi } from '@tonejs/midi';
+
+const DEFAULT_ABC_KEY_EXPORT: AbcKeyExportOptions = {
+    enabled: false,
+    tonicLetter: 'C',
+    tonicAccidental: '=',
+    mode: 'maj',
+    additionalAccidentals: []
+};
 
 export const useConversionSettings = (midiData: Midi | null) => {
     // Tempo & Time
@@ -47,6 +55,7 @@ export const useConversionSettings = (midiData: Midi | null) => {
     const [modalModeName, setModalModeName] = useState<string>('Major');
     const [modalMappings, setModalMappings] = useState<Record<number, number>>({});
     const [keySignatureSpelling, setKeySignatureSpelling] = useState<'auto' | 'sharp' | 'flat'>('auto');
+    const [abcKeyExport, setAbcKeyExport] = useState<AbcKeyExportOptions>(DEFAULT_ABC_KEY_EXPORT);
 
     // Filtering
     const [eventsToDelete, setEventsToDelete] = useState<Set<MidiEventType>>(new Set());
@@ -123,6 +132,7 @@ export const useConversionSettings = (midiData: Midi | null) => {
         setModalRoot(0);
         setModalModeName('Major');
         setKeySignatureSpelling('auto');
+        setAbcKeyExport(DEFAULT_ABC_KEY_EXPORT);
         setEventsToDelete(new Set());
         const resetMap: Record<number, number> = {};
         for (let i = 0; i < 12; i++) resetMap[i] = i;
@@ -182,9 +192,10 @@ export const useConversionSettings = (midiData: Midi | null) => {
             voiceSeparationMaxVoices: maxVoices,
             voiceSeparationDisableChords: disableChords,
             outputStrategy,
-            keySignatureSpelling
+            keySignatureSpelling,
+            abcKeyExport
         };
-    }, [newTempo, newTimeSignature, transpositionSemitones, transpositionOctaves, originalTempo, tempoChangeMode, noteTimeScale, inversionMode, melodicInversion, exportRange, primaryRhythm, secondaryRhythm, quantizeDurationMin, shiftToMeasure, detectOrnaments, isModalConversionEnabled, modalRoot, modalModeName, modalMappings, removeShortNotesThresholdIndex, pruneOverlaps, pruneThresholdIndex, softOverlapToleranceIndex, pitchBias, maxVoices, disableChords, outputStrategy, keySignatureSpelling, midiData]);
+    }, [newTempo, newTimeSignature, transpositionSemitones, transpositionOctaves, originalTempo, tempoChangeMode, noteTimeScale, inversionMode, melodicInversion, exportRange, primaryRhythm, secondaryRhythm, quantizeDurationMin, shiftToMeasure, detectOrnaments, isModalConversionEnabled, modalRoot, modalModeName, modalMappings, removeShortNotesThresholdIndex, pruneOverlaps, pruneThresholdIndex, softOverlapToleranceIndex, pitchBias, maxVoices, disableChords, outputStrategy, keySignatureSpelling, abcKeyExport, midiData]);
 
     return {
         settings: {
@@ -193,7 +204,7 @@ export const useConversionSettings = (midiData: Midi | null) => {
             primaryRhythm, secondaryRhythm, quantizationValue: primaryRhythm.enabled ? primaryRhythm.minNoteValue : 'off',
             quantizeDurationMin, shiftToMeasure, detectOrnaments, removeShortNotesThresholdIndex, pruneOverlaps,
             pruneThresholdIndex, softOverlapToleranceIndex, pitchBias, maxVoices, disableChords, outputStrategy,
-            isModalConversionEnabled, modalRoot, modalModeName, modalMappings, keySignatureSpelling, eventsToDelete
+            isModalConversionEnabled, modalRoot, modalModeName, modalMappings, keySignatureSpelling, abcKeyExport, eventsToDelete
         },
         setters: {
             setNewTempo, setNewTimeSignature, setTempoChangeMode, setTranspositionSemitones, setTranspositionOctaves,
@@ -205,7 +216,7 @@ export const useConversionSettings = (midiData: Midi | null) => {
             setQuantizeDurationMin, setShiftToMeasure, setDetectOrnaments, setRemoveShortNotesThresholdIndex,
             setPruneOverlaps, setPruneThresholdIndex, setSoftOverlapToleranceIndex, setPitchBias, setMaxVoices,
             setDisableChords, setOutputStrategy, setIsModalConversionEnabled, setModalRoot, setModalModeName,
-            setModalMappings, setKeySignatureSpelling, setEventsToDelete
+            setModalMappings, setKeySignatureSpelling, setAbcKeyExport, setEventsToDelete
         },
         handleResetSettings,
         getConversionOptions
