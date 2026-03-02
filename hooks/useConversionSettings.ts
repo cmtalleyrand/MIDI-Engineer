@@ -50,7 +50,13 @@ export const useConversionSettings = (midiData: Midi | null) => {
     const [maxVoices, setMaxVoices] = useState<number>(0); 
     const [disableChords, setDisableChords] = useState<boolean>(false);
     const [outputStrategy, setOutputStrategy] = useState<OutputStrategy>('combine');
-    const [drumGeneration, setDrumGeneration] = useState<DrumGenerationOptions>({ enabled: false, style: 'cinematic_toms', density: 0.4, intensity: 0.55 });
+    const [drumGeneration, setDrumGeneration] = useState<DrumGenerationOptions>({
+        enabled: false, style: 'cinematic_toms',
+        fillLevel: 1, intensity: 0.55,
+        parts: 3, hatEnabled: true,
+        rhythmAlignBass: 0, rhythmAlignMelody: 0,
+        densityAlignBass: 0, densityAlignMelody: 0
+    });
 
     // Key & Mode
     const [isModalConversionEnabled, setIsModalConversionEnabled] = useState<boolean>(false);
@@ -133,7 +139,13 @@ export const useConversionSettings = (midiData: Midi | null) => {
         setMaxVoices(0);
         setDisableChords(false);
         setOutputStrategy('combine');
-        setDrumGeneration({ enabled: false, style: 'cinematic_toms', density: 0.4, intensity: 0.55 });
+        setDrumGeneration({
+            enabled: false, style: 'cinematic_toms',
+            fillLevel: 1, intensity: 0.55,
+            parts: 3, hatEnabled: true,
+            rhythmAlignBass: 0, rhythmAlignMelody: 0,
+            densityAlignBass: 0, densityAlignMelody: 0
+        });
         setIsModalConversionEnabled(false);
         setModalRoot(0);
         setModalModeName('Major');
