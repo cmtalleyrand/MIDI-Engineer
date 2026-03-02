@@ -476,11 +476,25 @@ export async function combineAndDownload(originalMidi: Midi, trackIds: number[],
         const notePool = originalMidi.tracks
             .filter((_, idx) => selectedTrackIds.has(idx))
             .flatMap(t => t.notes.map(n => ({ ...n })));
-        const skeleton = detectStructuralRhythm(notePool, originalMidi.header.ppq, {
+
+        // Use the voice allocator to identify bass (last voice) and melody (first voice)
+        // so the alignment sliders have a musically accurate reference.
+        const voiceDist   = distributeToVoices(notePool, resolvedOptions, originalMidi.header.ppq);
+        const melodyNotes = voiceDist.voices[0] ?? [];
+        const bassNotes   = voiceDist.voices[voiceDist.voices.length - 1] ?? notePool;
+
+        const skeletonOpts = {
             detectOrnaments: resolvedOptions.detectOrnaments,
             minInterOnsetTicks: Math.max(8, Math.round(originalMidi.header.ppq / 24))
-        });
-        const drumNotes = generateDrumNotesFromRhythm(skeleton, resolvedOptions.drumGeneration, newMidi.header.ppq);
+        };
+        const fullSkeleton   = detectStructuralRhythm(notePool,    originalMidi.header.ppq, skeletonOpts);
+        const bassSkeleton   = detectStructuralRhythm(bassNotes,   originalMidi.header.ppq, skeletonOpts);
+        const melodySkeleton = detectStructuralRhythm(melodyNotes, originalMidi.header.ppq, skeletonOpts);
+
+        const drumNotes = generateDrumNotesFromRhythm(
+            fullSkeleton, bassSkeleton, melodySkeleton,
+            resolvedOptions.drumGeneration, newMidi.header.ppq
+        );
         if (drumNotes.length > 0) {
             const drumTrack = newMidi.addTrack();
             drumTrack.name = `Generated Drums - ${resolvedOptions.drumGeneration.style}`;

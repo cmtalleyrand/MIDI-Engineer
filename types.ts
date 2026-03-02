@@ -144,8 +144,14 @@ export type DrumStyle = 'four_on_floor' | 'martial' | 'timpani_melodic' | 'cinem
 export interface DrumGenerationOptions {
     enabled: boolean;
     style: DrumStyle;
-    density: number; // 0..1
-    intensity: number; // 0..1
+    fillLevel: 0 | 1 | 2 | 3;  // 0 = base pattern only, 1 = light, 2 = medium, 3 = heavy
+    intensity: number;           // 0..1 (velocity: pp → ff)
+    parts: number;               // 1..5 active instrument tiers per style
+    hatEnabled: boolean;         // show/hide hi-hats across all styles
+    rhythmAlignBass: number;     // -1..+1: counter-rhythm ← independent → locked to bass
+    rhythmAlignMelody: number;   // -1..+1: counter-rhythm ← independent → locked to melody
+    densityAlignBass: number;    // -1..+1: more hits when bass sparse ← neutral → more when bass busy
+    densityAlignMelody: number;  // -1..+1: more hits when melody sparse ← neutral → more when melody busy
 }
 
 export interface RhythmSkeletonEvent {
