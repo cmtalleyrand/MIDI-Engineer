@@ -127,6 +127,7 @@ function resolveScaleSource(root: number, modeName: string, abcKeyExport?: AbcKe
     return { root: resolvedRoot, modeName: resolvedMode };
 }
 
+
 function buildAbcKeyStringFromSelection(abcKeyExport: AbcKeyExportOptions): string {
     const tonicAccidental = abcKeyExport.tonicAccidental === '=' ? '' : ABC_ACCIDENTAL_SYMBOL[abcKeyExport.tonicAccidental];
     const tonic = `${tonicAccidental}${abcKeyExport.tonicLetter}`;

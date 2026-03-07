@@ -168,6 +168,7 @@ export function runFixtureSuite() {
     abcKeyExport: { enabled: false, tonicLetter: 'C', tonicAccidental: '=', mode: 'maj', additionalAccidentals: [] }
   }), 120);
 
+
   // C Major scale → C Dorian: E(interval 4)→Eb(3), B(interval 11)→Bb(10)
   const modalInput = [
     note(60, 0, 480), note(62, 480, 480), note(64, 960, 480), note(65, 1440, 480),
