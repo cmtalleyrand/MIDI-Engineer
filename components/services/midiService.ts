@@ -8,3 +8,4 @@ export * from './analysis/transformationAnalysis';
 export * from './midiAbc';
 export * from './midiAnalysis';
 export * from '../midiPlaybackService';
+export * from './drumGenerator';
