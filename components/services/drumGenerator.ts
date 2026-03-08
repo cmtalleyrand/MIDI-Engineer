@@ -55,6 +55,22 @@ function calcVelocity(base: number, accent: number, dynamicsRange: number): numb
     return Math.max(1, Math.min(127, Math.round(base + accent * range)));
 }
 
+function ticksToSeconds(tick: number, tempos: Array<{ ticks: number; bpm: number }>, ppq: number): number {
+    const sorted = [...tempos].sort((a, b) => a.ticks - b.ticks);
+    const firstBpm = (sorted.length > 0 && sorted[0].ticks === 0) ? sorted[0].bpm : 120;
+    let time = 0;
+    let prevTick = 0;
+    let prevBpm = firstBpm;
+    for (const t of sorted) {
+        if (t.ticks >= tick) break;
+        time += (t.ticks - prevTick) * (60 / prevBpm) / ppq;
+        prevTick = t.ticks;
+        prevBpm = t.bpm;
+    }
+    time += (tick - prevTick) * (60 / prevBpm) / ppq;
+    return time;
+}
+
 function subdivisionWeight(profile: BeatWeightProfile, tick: number, ticksPerMeasure: number): number {
     const pos = tick % ticksPerMeasure;
     const idx = Math.round(pos / (ticksPerMeasure / profile.subdivisionsPerMeasure)) % profile.subdivisionsPerMeasure;
@@ -74,7 +90,6 @@ export function detectBeatProfile(
     const ticksPerSub = ticksPerMeasure / subdivisions;
 
     const weights = new Array(subdivisions).fill(0);
-    let totalWeight = 0;
 
     for (const id of trackIds) {
         const track = midi.tracks[id];
@@ -84,7 +99,6 @@ export function detectBeatProfile(
             const idx = Math.round(pos / ticksPerSub) % subdivisions;
             const bassWeight = (128 - note.midi) / 128;
             weights[idx] += bassWeight;
-            totalWeight += bassWeight;
         }
     }
 
@@ -129,8 +143,8 @@ function detectTimpaniPitches(midi: Midi, trackIds: number[]): { root: number; d
 
     const predictions = predictKey(hist, total);
     const rootPC = predictions.length > 0 ? predictions[0].winner.root : 0;
-    const root = 36 + rootPC;                    // C2 range
-    const dominant = root + 7 <= 60 ? root + 7 : root - 5; // fifth above, clamp to timpani range
+    const root = 36 + rootPC;        // C2 range
+    const dominant = root + 7;       // perfect fifth above root
 
     return { root, dominant };
 }
@@ -478,6 +492,8 @@ export function generateDrumTrack(
     out.header.tempos = [...originalMidi.header.tempos];
     out.header.timeSignatures = [...originalMidi.header.timeSignatures];
     if (originalMidi.header.name) out.header.name = originalMidi.header.name;
+    // Rebuild internal tick↔time cache so addNote() can resolve timing correctly.
+    out.header.update();
 
     const track = out.addTrack();
 
@@ -493,15 +509,15 @@ export function generateDrumTrack(
         track.instrument.name = 'Standard Kit';
     }
 
-    const secondsPerTick = (60 / tempo) / ppq;
+    const outTempos = out.header.tempos;
     for (const n of drumNotes) {
         track.addNote({
             midi: n.midi,
             ticks: n.ticks,
             durationTicks: n.durationTicks,
             velocity: n.velocity,
-            time: n.ticks * secondsPerTick,
-            duration: n.durationTicks * secondsPerTick,
+            time: ticksToSeconds(n.ticks, outTempos, ppq),
+            duration: ticksToSeconds(n.ticks + n.durationTicks, outTempos, ppq) - ticksToSeconds(n.ticks, outTempos, ppq),
         });
     }
 
