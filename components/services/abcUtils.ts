@@ -92,10 +92,13 @@ export function flattenPolyphonyToChords(notes: any[]): AbcEvent[] {
         if (activeNotes.length === 0) {
             events.push({ type: 'rest', ticks: start, durationTicks: duration });
         } else {
-            const noteData: AbcNoteInfo[] = activeNotes.map(n => ({
-                midi: n.midi,
-                tied: (n.ticks + n.durationTicks) > end
-            }));
+            const dedupedByMidi = new Map<number, boolean>();
+            activeNotes.forEach((n) => {
+                const isTied = (n.ticks + n.durationTicks) > end;
+                dedupedByMidi.set(n.midi, Boolean(dedupedByMidi.get(n.midi)) || isTied);
+            });
+
+            const noteData: AbcNoteInfo[] = Array.from(dedupedByMidi.entries()).map(([midi, tied]) => ({ midi, tied }));
             noteData.sort((a,b) => a.midi - b.midi);
             events.push({ type: 'note', ticks: start, durationTicks: duration, notes: noteData });
         }

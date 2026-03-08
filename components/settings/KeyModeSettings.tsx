@@ -18,7 +18,7 @@ const MODES = {
 const ABC_MODES = ['maj', 'min', 'dor', 'phr', 'lyd', 'mix', 'loc'];
 const ABC_ACCIDENTALS = ['__', '_', '=', '^', '^^'] as const;
 const ABC_TONIC_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'] as const;
-const ABC_NOTE_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'a', 'b', 'c', 'd', 'e', 'f', 'g'] as const;
+const ABC_NOTE_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'] as const;
 
 const getDegreeLabel = (interval: number, modeIntervals: number[]) => {
     const degreeIndex = modeIntervals.indexOf(interval);
@@ -97,7 +97,7 @@ export default function KeyModeSettings() {
                 <div className="mt-4 p-3 border border-gray-700 rounded-md bg-gray-900/40">
                     <div className="flex items-center justify-between">
                         <div>
-                            <span className="text-sm font-medium text-gray-300">Override ABC export key (K:)</span>
+                            <span className="text-sm font-medium text-gray-300">Set your own export key (K:)</span>
                             <p className="text-xs text-gray-500 mt-1">Choose tonic, mode and additional accidentals using ABC key syntax.</p>
                         </div>
                         <label className="flex items-center cursor-pointer">

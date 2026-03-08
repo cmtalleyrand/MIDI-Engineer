@@ -127,6 +127,48 @@ export function runFixtureSuite() {
     }
   }), 120);
 
+  const duplicateMidi = new Midi();
+  duplicateMidi.header.setTempo(91);
+  duplicateMidi.header.timeSignatures = [{ ticks: 0, timeSignature: [4, 4] }];
+  const dupTrack = duplicateMidi.addTrack();
+  dupTrack.name = 'Dup';
+  dupTrack.addNote({ midi: 71, ticks: 0, durationTicks: 240, velocity: 0.8 });
+  dupTrack.addNote({ midi: 71, ticks: 120, durationTicks: 240, velocity: 0.8 });
+  const duplicateAbc = renderMidiToAbc(duplicateMidi, 'duplicate.abc', withBaseOptions({
+    outputStrategy: 'combine',
+    modalConversion: { enabled: false, root: 10, modeName: 'Natural Minor', mappings: {} },
+    abcKeyExport: {
+      enabled: true,
+      tonicLetter: 'B',
+      tonicAccidental: '_',
+      mode: 'min',
+      additionalAccidentals: [{ accidental: '=', letter: 'A' }, { accidental: '=', letter: 'E' }]
+    }
+  }), 120);
+
+  const customKeyScaleMidi = new Midi();
+  customKeyScaleMidi.header.setTempo(120);
+  customKeyScaleMidi.header.timeSignatures = [{ ticks: 0, timeSignature: [4, 4] }];
+  const customKeyTrack = customKeyScaleMidi.addTrack();
+  customKeyTrack.name = 'CustomKeyScale';
+  customKeyTrack.addNote({ midi: 70, ticks: 0, durationTicks: 240, velocity: 0.8 });
+  const customKeyScaleAbc = renderMidiToAbc(customKeyScaleMidi, 'custom-key-scale.abc', withBaseOptions({
+    outputStrategy: 'combine',
+    abcKeyExport: {
+      enabled: true,
+      tonicLetter: 'D',
+      tonicAccidental: '=',
+      mode: 'phr',
+      additionalAccidentals: []
+    }
+  }), 120);
+
+  const defaultScaleAbc = renderMidiToAbc(customKeyScaleMidi, 'default-key-scale.abc', withBaseOptions({
+    outputStrategy: 'combine',
+    abcKeyExport: { enabled: false, tonicLetter: 'C', tonicAccidental: '=', mode: 'maj', additionalAccidentals: [] }
+  }), 120);
+
+
   // C Major scale → C Dorian: E(interval 4)→Eb(3), B(interval 11)→Bb(10)
   const modalInput = [
     note(60, 0, 480), note(62, 480, 480), note(64, 960, 480), note(65, 1440, 480),
@@ -170,7 +212,16 @@ export function runFixtureSuite() {
       hasCorrectPlacement: abcTie.includes('C5-') || abcTie.includes('C-') || abcTie.includes('c5-') || abcTie.includes('c-'),
       hasWrongPlacement: abcTie.includes('C-5') || abcTie.includes('c-5')
     },
-    modalConversion: { direct: modalDirect, viaGetTransformedNotes: modalViaTransform }
+    modalConversion: { direct: modalDirect, viaGetTransformedNotes: modalViaTransform },
+    duplicatePitchHandling: {
+      keyLine: duplicateAbc.split('\n').find(line => line.startsWith('K:')) || '',
+      containsDuplicatedChordPitch: duplicateAbc.includes('[B-B]')
+    },
+    customKeyAffectsPitchSpelling: {
+      keyLine: customKeyScaleAbc.split('\n').find(line => line.startsWith('K:')) || '',
+      bodyLineWithCustomKey: customKeyScaleAbc.split('\n').find(line => line.includes('|') && !line.startsWith('%')) || '',
+      bodyLineWithDefaultKey: defaultScaleAbc.split('\n').find(line => line.includes('|') && !line.startsWith('%')) || ''
+    }
   };
 }
 
