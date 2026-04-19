@@ -11,6 +11,7 @@ import Notification from './components/Notification';
 import ConversionSettings from './components/ConversionSettings';
 import ActionPanel from './components/ActionPanel';
 import DrumGeneratorModal from './components/DrumGeneratorModal';
+import AbcPreviewPanel from './components/AbcPreviewPanel';
 import { DevicePhoneMobileIcon, GlobeAltIcon } from './components/Icons';
 
 import { useMidiAppController } from './hooks/useMidiAppController';
@@ -19,6 +20,27 @@ import { SettingsProvider, useSettings } from './context/SettingsContext';
 function MidiAppContent() {
   const { project, playback, ui, computed, handlers } = useMidiAppController();
   const { settings } = useSettings();
+
+  const handleCopyAbc = async (abc: string) => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(abc);
+      } else {
+        const fallbackTextarea = document.createElement('textarea');
+        fallbackTextarea.value = abc;
+        fallbackTextarea.style.position = 'fixed';
+        fallbackTextarea.style.left = '-9999px';
+        document.body.appendChild(fallbackTextarea);
+        fallbackTextarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(fallbackTextarea);
+      }
+      ui.setSuccessMessage('ABC copied to clipboard.');
+    } catch (error) {
+      console.error(error);
+      ui.setErrorMessage('Unable to copy ABC to clipboard.');
+    }
+  };
 
   const activeMessage = ui.errorMessage || project.loadError || playback.playbackError || ui.successMessage;
   const activeMessageType = (ui.errorMessage || project.loadError || playback.playbackError) ? 'error' : 'success';
@@ -75,12 +97,18 @@ function MidiAppContent() {
               <ActionPanel
                  onCombine={handlers.handleCombine}
                  onExportAbc={handlers.handleExportAbc}
+                 onPreviewAbc={handlers.handlePreviewAbc}
                  onAnalyzeSelection={handlers.handleAnalyzeSelection}
                  onOpenDrumGenerator={handlers.handleOpenDrumGenerator}
                  isCombining={ui.uiState === AppState.COMBINING}
                  isExportingAbc={ui.isExportingAbc}
                  canProcess={project.selectedTracks.size >= 1}
                  selectedCount={project.selectedTracks.size}
+              />
+              <AbcPreviewPanel
+                previews={ui.abcPreviews}
+                onCopy={handleCopyAbc}
+                onClear={() => ui.setAbcPreviews([])}
               />
             </div>
           )}

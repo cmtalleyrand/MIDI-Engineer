@@ -8,6 +8,7 @@ import { AppState } from '../types';
 import { 
     combineAndDownload, 
     exportTracksToAbc, 
+    generateTrackAbcPreviews,
     getTransformedTrackDataForPianoRoll, 
     analyzeTrack, 
     analyzeTrackSelection, 
@@ -52,6 +53,7 @@ export const useMidiAppController = () => {
         project.actions.handleResetProject();
         playback.actions.stop();
         ui.clearMessages();
+        ui.setAbcPreviews([]);
         handleResetSettings();
         ui.setUiState(AppState.IDLE);
     };
@@ -61,6 +63,7 @@ export const useMidiAppController = () => {
         playback.actions.stop();
         ui.setUiState(AppState.COMBINING);
         ui.clearMessages();
+        ui.setAbcPreviews([]);
         const options = getConversionOptions();
         if (!options) {
              ui.setErrorMessage("Invalid options.");
@@ -89,6 +92,7 @@ export const useMidiAppController = () => {
         playback.actions.stop();
         ui.setIsExportingAbc(true);
         ui.clearMessages();
+        ui.setAbcPreviews([]);
         const options = getConversionOptions();
         if (!options) {
             ui.setIsExportingAbc(false);
@@ -106,6 +110,34 @@ export const useMidiAppController = () => {
             ui.setUiState(AppState.DOWNLOAD_ERROR);
         } finally {
             ui.setIsExportingAbc(false);
+        }
+    };
+
+    const handlePreviewAbc = () => {
+        if (!project.midiData || project.selectedTracks.size < 1) return;
+        playback.actions.stop();
+        ui.clearMessages();
+        const options = getConversionOptions();
+        if (!options) {
+            ui.setErrorMessage("Invalid options.");
+            return;
+        }
+        try {
+            const baseName = project.fileName.replace(/\.mid(i)?$/i, '');
+            const previews = generateTrackAbcPreviews(
+                project.midiData,
+                Array.from(project.selectedTracks),
+                `${baseName}_export.abc`,
+                settings.eventsToDelete,
+                options
+            );
+            ui.setAbcPreviews(previews);
+            ui.setSuccessMessage(`Prepared ${previews.length} ABC preview${previews.length === 1 ? '' : 's'}.`);
+            ui.setUiState(AppState.SUCCESS);
+        } catch (e) {
+            console.error(e);
+            ui.setErrorMessage("An unexpected error occurred preparing ABC previews.");
+            ui.setUiState(AppState.DOWNLOAD_ERROR);
         }
     };
 
@@ -162,6 +194,7 @@ export const useMidiAppController = () => {
             handleReset,
             handleCombine,
             handleExportAbc,
+            handlePreviewAbc,
             handlePreview,
             handleShowPianoRoll,
             handleAnalyzeTrack,

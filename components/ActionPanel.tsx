@@ -5,6 +5,7 @@ import { Spinner, DownloadIcon, AbcIcon, ChartBarIcon, MusicNoteIcon } from './I
 interface ActionPanelProps {
     onCombine: () => void;
     onExportAbc: () => void;
+    onPreviewAbc: () => void;
     onAnalyzeSelection: () => void;
     onOpenDrumGenerator: () => void;
     isCombining: boolean;
@@ -13,7 +14,7 @@ interface ActionPanelProps {
     selectedCount: number;
 }
 
-export default function ActionPanel({ onCombine, onExportAbc, onAnalyzeSelection, onOpenDrumGenerator, isCombining, isExportingAbc, canProcess, selectedCount }: ActionPanelProps) {
+export default function ActionPanel({ onCombine, onExportAbc, onPreviewAbc, onAnalyzeSelection, onOpenDrumGenerator, isCombining, isExportingAbc, canProcess, selectedCount }: ActionPanelProps) {
     const midiButtonActionText = selectedCount > 0 ? 'Download MIDI' : 'Download';
 
     return (
@@ -31,7 +32,7 @@ export default function ActionPanel({ onCombine, onExportAbc, onAnalyzeSelection
                     )}
                 </button>
                 <div className="flex flex-col gap-2">
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-4 gap-2">
                         <button
                             onClick={onExportAbc}
                             disabled={!canProcess || isCombining || isExportingAbc}
@@ -42,6 +43,13 @@ export default function ActionPanel({ onCombine, onExportAbc, onAnalyzeSelection
                             ) : (
                                 <><AbcIcon className="w-4 h-4" /><span className="text-xs">Export ABC</span></>
                             )}
+                        </button>
+                        <button
+                            onClick={onPreviewAbc}
+                            disabled={!canProcess || isCombining || isExportingAbc}
+                            className="w-full flex items-center justify-center gap-3 px-2 py-4 bg-gray-medium/80 text-white font-bold rounded-lg shadow-lg transition-all duration-300 ease-in-out disabled:bg-gray-medium disabled:cursor-not-allowed hover:bg-gray-medium focus:outline-none focus:ring-4 focus:ring-gray-light/50"
+                        >
+                            <AbcIcon className="w-4 h-4" /><span className="text-xs">Show ABC</span>
                         </button>
                         <button
                             onClick={onAnalyzeSelection}

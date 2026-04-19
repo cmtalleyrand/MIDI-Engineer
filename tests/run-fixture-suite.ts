@@ -4,6 +4,7 @@ import * as assert from 'node:assert/strict';
 import { runFixtureSuite } from './fixture-suite.test';
 import { runPianoRollUtilsTests } from './piano-roll-utils.test';
 import { runPianoRollPipelineTests } from './piano-roll-pipeline.test';
+import { runMidiAbcPreviewTests } from './midi-abc-preview.test';
 
 const TIMEOUT_MS = 30_000;
 const timer = setTimeout(() => {
@@ -47,6 +48,10 @@ run('Piano roll utilities', () => {
 
 run('Piano roll pipeline', () => {
     runPianoRollPipelineTests();
+});
+
+run('ABC preview generation', () => {
+    runMidiAbcPreviewTests();
 });
 
 clearTimeout(timer);
