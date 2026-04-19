@@ -118,6 +118,63 @@ export function renderMidiToAbc(midi: Midi, fileName: string, options: Conversio
     return abc;
 }
 
+export interface TrackAbcPreview {
+    trackId: number;
+    trackName: string;
+    fileName: string;
+    abc: string;
+}
+
+export function generateTrackAbcPreviews(
+    originalMidi: Midi,
+    trackIds: number[],
+    baseFileName: string,
+    eventsToDelete: Set<MidiEventType>,
+    options: ConversionOptions
+): TrackAbcPreview[] {
+    const { options: resolvedOptions, debug } = resolveExportOptions(options, 'abc');
+    logExportResolution(debug);
+    const baseName = baseFileName.replace(/\.abc$/i, '');
+
+    return trackIds
+        .map((trackId) => {
+            const sourceTrack = originalMidi.tracks[trackId];
+            if (!sourceTrack) return null;
+
+            const previewMidi = new Midi();
+            if (originalMidi.header.name) previewMidi.header.name = originalMidi.header.name;
+            copyHeaderEvents(originalMidi.header, previewMidi.header, resolvedOptions);
+
+            const targetTrack = previewMidi.addTrack();
+            targetTrack.name = sourceTrack.name;
+            targetTrack.instrument = sourceTrack.instrument;
+            copyAndTransformTrackEvents(
+                sourceTrack,
+                targetTrack,
+                resolvedOptions,
+                eventsToDelete,
+                previewMidi.header,
+                originalMidi.header.ppq
+            );
+
+            const fileName = `${baseName}_track${trackId + 1}.abc`;
+            const abc = renderMidiToAbc(
+                previewMidi,
+                fileName,
+                resolvedOptions,
+                getQuantizationTickValue(resolvedOptions.quantizationValue, previewMidi.header.ppq)
+            );
+
+            return {
+                trackId,
+                trackName: sourceTrack.name || `Track ${trackId + 1}`,
+                fileName,
+                abc
+            };
+        })
+        .filter((item): item is TrackAbcPreview => item !== null);
+}
+
 export async function exportTracksToAbc(originalMidi: Midi, trackIds: number[], newFileName: string, eventsToDelete: Set<MidiEventType>, options: ConversionOptions): Promise<void> {
     const { options: resolvedOptions, debug } = resolveExportOptions(options, 'abc');
     logExportResolution(debug);

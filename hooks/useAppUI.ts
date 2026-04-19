@@ -1,12 +1,14 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { AppState, PianoRollTrackData, TrackAnalysisData } from '../types';
+import type { TrackAbcPreview } from '../components/services/midiAbc';
 
 export const useAppUI = () => {
     const [uiState, setUiState] = useState<AppState>(AppState.IDLE);
     const [errorMessage, setErrorMessage] = useState<string>('');
     const [successMessage, setSuccessMessage] = useState<string>('');
     const [isExportingAbc, setIsExportingAbc] = useState<boolean>(false);
+    const [abcPreviews, setAbcPreviews] = useState<TrackAbcPreview[]>([]);
 
     // Modals
     const [isPianoRollVisible, setIsPianoRollVisible] = useState<boolean>(false);
@@ -68,6 +70,7 @@ export const useAppUI = () => {
         errorMessage, setErrorMessage,
         successMessage, setSuccessMessage,
         isExportingAbc, setIsExportingAbc,
+        abcPreviews, setAbcPreviews,
         isPianoRollVisible, setIsPianoRollVisible,
         pianoRollTrackData, setPianoRollTrackData,
         isAnalysisVisible, setIsAnalysisVisible,
