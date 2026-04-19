@@ -2,7 +2,7 @@ import * as assert from 'node:assert/strict';
 import { Midi } from '@tonejs/midi';
 
 import type { ConversionOptions } from '../types';
-import { copyAndTransformTrackEvents, getTransformedTrackDataForPianoRoll } from '../components/services/midiPipeline';
+import { copyAndTransformTrackEvents, copyHeaderEvents, getTransformedTrackDataForPianoRoll } from '../components/services/midiPipeline';
 
 function buildOptions(partial: Partial<ConversionOptions> = {}): ConversionOptions {
   return {
@@ -84,5 +84,42 @@ export function runPianoRollPipelineTests() {
     warnings[0],
     /Export Duplicate Notes.*Duplicate-note export regression.*midi=64.*@M1:B3\+0\.00.*duration=0\.5 beat\(s\)/i,
     'Duplicate-note warning should clearly indicate track and location (tick + measure/beat).'
+  );
+
+  const tempoMidi = new Midi();
+  Object.defineProperty(tempoMidi.header, 'ppq', { value: 480 });
+  tempoMidi.header.tempos = [
+    { ticks: 0, bpm: 120 },
+    { ticks: 960, bpm: 60 }
+  ];
+  tempoMidi.header.timeSignatures = [{ ticks: 0, timeSignature: [4, 4] }];
+  tempoMidi.header.update();
+
+  const tempoTrack = tempoMidi.addTrack();
+  tempoTrack.addNote({ midi: 69, ticks: 900, durationTicks: 60, velocity: 0.8 });
+  tempoTrack.addNote({ midi: 67, ticks: 960, durationTicks: 240, velocity: 0.8 });
+
+  const tempoExportMidi = new Midi();
+  copyHeaderEvents(tempoMidi.header, tempoExportMidi.header, buildOptions());
+  const tempoExportTrack = tempoExportMidi.addTrack();
+
+  copyAndTransformTrackEvents(
+    tempoTrack,
+    tempoExportTrack,
+    buildOptions(),
+    new Set(),
+    tempoExportMidi.header,
+    tempoMidi.header.ppq
+  );
+
+  assert.deepEqual(
+    tempoExportTrack.notes.map(n => n.ticks),
+    [900, 960],
+    'Tempo-map preservation: note onset ticks must remain invariant under speed-mode transforms even when tempo changes are present.'
+  );
+  assert.deepEqual(
+    tempoExportTrack.notes.map(n => n.durationTicks),
+    [60, 240],
+    'Tempo-map preservation: note duration ticks must remain invariant under speed-mode transforms even when tempo changes are present.'
   );
 }
