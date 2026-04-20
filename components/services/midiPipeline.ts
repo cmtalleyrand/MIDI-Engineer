@@ -319,8 +319,6 @@ export function copyAndTransformTrackEvents(
 
     transformedNotes = dedupeNotesAndReport(transformedNotes, sourceTrack.name, options.timeSignature, destPPQ);
 
-    const secondsPerTick = (60 / options.tempo) / destPPQ;
-    transformedNotes = transformedNotes.map(n => ({ ...n, time: n.ticks * secondsPerTick, duration: n.durationTicks * secondsPerTick }));
     transformedNotes.forEach(note => destinationTrack.addNote(note));
     
     const isGlobalInversion = options.inversionMode === 'global';
@@ -340,7 +338,7 @@ export function copyAndTransformTrackEvents(
             ticks = ticks - cropStartTick;
         }
         
-        return { ...e, ticks, time: ticks * secondsPerTick };
+        return { ...e, ticks };
     };
 
     if (!eventsToDelete.has('controlChange')) {
@@ -358,7 +356,7 @@ export function copyAndTransformTrackEvents(
     if (!eventsToDelete.has('programChange')) {
         ((sourceTrack as any).programChanges || []).forEach((pc: any) => { 
             const t = transformEvent(pc);
-            if (t) (destinationTrack as any).addProgramChange(pc.number, t.time); 
+            if (t) (destinationTrack as any).addProgramChange(pc.number, destinationHeader.ticksToSeconds(t.ticks)); 
         });
     }
 }
