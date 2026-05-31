@@ -90,9 +90,9 @@ export function getFormattedTime(
 /**
  * Adjusts notes for chord detection: Ornaments are treated as sounding at their Principal's onset.
  */
-function prepareNotesForChordDetection(notes: (any | RawNote)[]): (any | RawNote)[] {
+function prepareNotesForChordDetection(notes: RawNote[]): RawNote[] {
   return notes.map((n) => {
-    const principalTick = (n as any)._principalTick;
+    const principalTick = (n as { _principalTick?: number })._principalTick;
     if (principalTick !== undefined) {
       // Treat ornament as principal for chord detection timing
       return { ...n, ticks: principalTick };
@@ -102,7 +102,7 @@ function prepareNotesForChordDetection(notes: (any | RawNote)[]): (any | RawNote
 }
 
 export function detectChordsSustain(
-  notes: any[] | RawNote[],
+  notes: RawNote[],
   ppq: number,
   tsNum: number,
   tsDenom: number,
@@ -127,7 +127,7 @@ export function detectChordsSustain(
       if (result) {
         const { match, alternatives } = result;
         const measure = Math.floor(t / ticksPerMeasure) + 1;
-        const constituentNotes = Array.from(new Set(activeNotes.map((n: any) => n.name)));
+        const constituentNotes = Array.from(new Set(activeNotes.map((n) => n.name)));
         const lastChord = chords[chords.length - 1];
         if (!lastChord || lastChord.name !== match.name || lastChord.measure !== measure) {
           chords.push({
@@ -152,7 +152,7 @@ export function detectChordsSustain(
 }
 
 export function detectChordsAttack(
-  notes: any[] | RawNote[],
+  notes: RawNote[],
   ppq: number,
   tsNum: number,
   tsDenom: number,
