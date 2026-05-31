@@ -113,8 +113,9 @@ export async function parseMidiFromFile(
       durationTicks: n.durationTicks,
     }));
     const taggedNotes = detectAndTagOrnaments(notesCopy, midi.header.ppq);
-    const ornamentCount = taggedNotes.filter((n) => (n as { isOrnament?: boolean }).isOrnament)
-      .length;
+    const ornamentCount = taggedNotes.filter(
+      (n) => (n as { isOrnament?: boolean }).isOrnament
+    ).length;
 
     return {
       id: index, // Keep original index for referencing

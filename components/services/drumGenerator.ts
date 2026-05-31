@@ -1,10 +1,6 @@
 import { Midi } from '@tonejs/midi';
 import { detectBeatProfile, detectTimpaniPitches } from './beatDetection';
-import {
-  generateFourOnFloor,
-  generateOrchestraTimpani,
-  generateBrushesRide,
-} from './drumPatterns';
+import { generateFourOnFloor, generateOrchestraTimpani, generateBrushesRide } from './drumPatterns';
 import { DrumGeneratorOptions, DrumNote } from './drumKit';
 
 // Re-export the public surface so existing importers keep a stable path.

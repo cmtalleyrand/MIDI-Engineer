@@ -35,12 +35,24 @@ Behaviour-preserving foundation pass (fixture snapshot byte-identical throughout
 - **Type safety**: typed midiTransform's transform functions with `RawNote[]`
   (made `pruneOverlaps` generic). This surfaced and fixed a latent bug where
   spreading a tonejs `Note` dropped its `name` getter, leaving `RawNote.name`
-  undefined on the analysis transform paths. Lint warnings 165 -> 118.
+  undefined on the analysis transform paths. The type pass then extended across
+  `midiPipeline` (generic dedupe/event helpers, typed program-change access),
+  `midiCore`/`ornamentDetector` (generic `detectAndTagOrnaments` over a minimal
+  `TaggableNote`), `midiHarmony`, `midiAnalysis` (new `AnalyzableNote` type),
+  `rhythmAnalysis`/`abcUtils`/`transformationAnalysis`, the settings handlers
+  (keyof-indexed value types), the PWA install event, and the PianoRoll note
+  state. **Lint warnings reduced 165 -> 45.** The active export and analysis
+  pipeline is now `any`-free.
+- **Monolith split**: the 522-line `drumGenerator.ts` was broken into `drumKit.ts`
+  (map/types/helpers), `beatDetection.ts` and `drumPatterns.ts`, with
+  `drumGenerator.ts` kept as a thin orchestrator re-exporting the public API.
 
-Remaining (tracked for later phases): splitting the 500-line service monoliths,
-eradicating the residual `any` usage, and the Phase 2 feature work (real
-constraint-based voice solver, Shadow Quantization Pass 2 contextual solver,
-ornament pipeline wiring, and the debug/trace transparency surface).
+Remaining (tracked for Phase 2): the `midiVoices.ts` and `shadowQuantizer.ts`
+splits + their residual `any`s are deferred to Phase 2 because those modules are
+substantially rewritten there (it would be throwaway churn now). The orphaned
+root-level `midiAnalysis.ts` (a dead duplicate of
+`components/services/midiAnalysis.ts`, imported by nothing) is flagged for
+removal pending owner confirmation.
 
 ### Fixed - Ornament detector correctness and spec alignment
 
