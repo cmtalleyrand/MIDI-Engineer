@@ -36,7 +36,12 @@ export const getQuantizationTickValue = (quantizationValue: string, ppq: number)
   return Math.round(ppq * multiplier);
 };
 
-export function pruneOverlaps(notes: any[], thresholdTicks: number): any[] {
+// Generic over the note shape so it can prune both tonejs `Note[]` (in the
+// export pipeline) and internal `RawNote[]`; it only touches midi/ticks/duration.
+export function pruneOverlaps<T extends { midi: number; ticks: number; durationTicks: number }>(
+  notes: T[],
+  thresholdTicks: number
+): T[] {
   if (notes.length === 0) return [];
 
   const sorted = [...notes].sort((a, b) => {
@@ -45,7 +50,7 @@ export function pruneOverlaps(notes: any[], thresholdTicks: number): any[] {
     return b.durationTicks - a.durationTicks;
   });
 
-  const pruned: any[] = [];
+  const pruned: T[] = [];
   let i = 0;
 
   while (i < sorted.length) {
@@ -72,14 +77,18 @@ export function pruneOverlaps(notes: any[], thresholdTicks: number): any[] {
       current.durationTicks = Math.max(0, next.ticks - current.ticks);
       break;
     }
-    if (current.durationTicks > 0) pruned.push(current as any);
+    if (current.durationTicks > 0) pruned.push(current);
     i = j;
   }
   return pruned;
 }
 
-export function quantizeNotes(notes: any[], options: ConversionOptions, ppq: number): any[] {
-  let notesToProcess = [...notes.map((n) => ({ ...n }) as any)];
+export function quantizeNotes(
+  notes: RawNote[],
+  options: ConversionOptions,
+  ppq: number
+): RawNote[] {
+  let notesToProcess: RawNote[] = [...notes.map((n) => ({ ...n }))];
 
   if (options.detectOrnaments) {
     notesToProcess = detectAndTagOrnaments(notesToProcess, ppq);
@@ -149,12 +158,12 @@ export function quantizeNotes(notes: any[], options: ConversionOptions, ppq: num
 }
 
 export function performInversion(
-  notes: any[],
+  notes: RawNote[],
   mode: InversionMode,
   ppq: number,
   timeSignature: { numerator: number; denominator: number },
   totalDurationTicks: number
-): any[] {
+): RawNote[] {
   if (mode === 'off') return notes;
   if (mode === 'global') {
     return notes.map((n) => ({ ...n, ticks: totalDurationTicks - (n.ticks + n.durationTicks) }));
@@ -208,7 +217,7 @@ function getRangeTicks(
 
 // Calculates statistics for UI Feedback
 export function calculateInversionStats(
-  notes: any[],
+  notes: RawNote[],
   options: MelodicInversionOptions,
   ppq: number,
   timeSignature: { numerator: number; denominator: number }
@@ -265,11 +274,11 @@ export function calculateInversionStats(
 }
 
 export function performMelodicInversion(
-  notes: any[],
+  notes: RawNote[],
   options: MelodicInversionOptions,
   ppq: number,
   timeSignature: { numerator: number; denominator: number }
-): any[] {
+): RawNote[] {
   if (!options.enabled) return notes;
 
   const { startTick, endTick } = getRangeTicks(
@@ -303,7 +312,7 @@ export function performMelodicInversion(
   });
 }
 
-export function performModalConversion(notes: any[], options: ConversionOptions): any[] {
+export function performModalConversion(notes: RawNote[], options: ConversionOptions): RawNote[] {
   if (!options.modalConversion.enabled) return notes;
   const { root, mappings } = options.modalConversion;
   return notes.map((note) => {
@@ -317,7 +326,7 @@ export function performModalConversion(notes: any[], options: ConversionOptions)
   });
 }
 
-export function cropToRange(notes: any[], options: ConversionOptions, ppq: number): any[] {
+export function cropToRange(notes: RawNote[], options: ConversionOptions, ppq: number): RawNote[] {
   if (!options.exportRange.enabled) return notes;
 
   const { startMeasure, endMeasure } = options.exportRange;
@@ -342,7 +351,11 @@ export function cropToRange(notes: any[], options: ConversionOptions, ppq: numbe
   return cropped;
 }
 
-export function getTransformedNotes(notes: any[], options: ConversionOptions, ppq: number): any[] {
+export function getTransformedNotes(
+  notes: RawNote[],
+  options: ConversionOptions,
+  ppq: number
+): RawNote[] {
   // 1. Filter Short (Unscaled)
   // Filter first so we don't process noise. Note: RemoveShortNotesThreshold is in original PPQ ticks.
   let processed = notes.map((n) => ({ ...n }));

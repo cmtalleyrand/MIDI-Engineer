@@ -255,7 +255,8 @@ export function analyzeTrack(
   if (options) {
     // Use the newly extracted function from midiTransform to simulate the output notes
     const transformedNotes = getTransformedNotes(
-      track.notes.map((n) => ({ ...n })),
+      // `name` is a getter on tonejs Note and is lost by spread, so copy it explicitly.
+      track.notes.map((n) => ({ ...n, name: n.name })),
       options,
       ppq
     );
