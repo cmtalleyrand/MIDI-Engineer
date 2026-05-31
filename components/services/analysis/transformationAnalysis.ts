@@ -1,7 +1,10 @@
 import { Midi, Track } from '@tonejs/midi';
-import { ConversionOptions, TransformationStats } from '../../../types';
+import { ConversionOptions, TransformationStats, RawNote } from '../../../types';
 import { getQuantizationTickValue, quantizeNotes } from '../midiTransform';
 import { getFormattedTime } from '../midiHarmony';
+
+// A note tagged with a stable id so input/output can be matched after quantization.
+type AnalysisNote = RawNote & { _analysisId: number };
 
 export function getQuantizationWarning(
   midi: Midi,
@@ -63,7 +66,14 @@ export function calculateTransformationStats(
   options: ConversionOptions,
   ppq: number
 ): TransformationStats {
-  let workingNotes = track.notes.map((n, idx) => ({ ...n, _analysisId: idx }) as any);
+  let workingNotes: AnalysisNote[] = track.notes.map((n, idx) => ({
+    midi: n.midi,
+    ticks: n.ticks,
+    durationTicks: n.durationTicks,
+    velocity: n.velocity,
+    name: n.name,
+    _analysisId: idx,
+  }));
   const initialCount = workingNotes.length;
 
   let removedByDuration = 0;
@@ -81,7 +91,7 @@ export function calculateTransformationStats(
 
   const inputById = new Map<number, { ticks: number; durationTicks: number }>();
   workingNotes.forEach((n) =>
-    inputById.set((n as any)._analysisId, { ticks: n.ticks, durationTicks: n.durationTicks })
+    inputById.set(n._analysisId, { ticks: n.ticks, durationTicks: n.durationTicks })
   );
 
   const primaryTicks = options.primaryRhythm.enabled
@@ -90,7 +100,7 @@ export function calculateTransformationStats(
   const legacyTicks = getQuantizationTickValue(options.quantizationValue, ppq);
   const measureGrid = primaryTicks > 0 ? primaryTicks : legacyTicks > 0 ? legacyTicks : ppq / 4;
 
-  const calculateAlignment = (notes: any[]) => {
+  const calculateAlignment = (notes: Array<{ ticks: number }>) => {
     if (notes.length === 0) return 0;
     let onGrid = 0;
     notes.forEach((n) => {
@@ -103,11 +113,13 @@ export function calculateTransformationStats(
 
   const inputGridAlignment = calculateAlignment(workingNotes);
 
+  // quantizeNotes preserves extra fields via spread at runtime, but its return
+  // type narrows to RawNote; re-assert the _analysisId tag we threaded through.
   const quantizedNotes = quantizeNotes(
     workingNotes.map((n) => ({ ...n })),
     options,
     ppq
-  ).map((n) => ({ ...n }));
+  ).map((n) => ({ ...n })) as AnalysisNote[];
 
   let quantizedCount = 0;
   let durationAdjustedCount = 0;
@@ -116,8 +128,8 @@ export function calculateTransformationStats(
   let totalShift = 0;
 
   const remainingIds = new Set<number>();
-  quantizedNotes.forEach((n: any) => {
-    const id = (n as any)._analysisId;
+  quantizedNotes.forEach((n) => {
+    const id = n._analysisId;
     if (id === undefined) return;
     remainingIds.add(id);
     const before = inputById.get(id);

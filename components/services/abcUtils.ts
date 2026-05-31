@@ -94,7 +94,9 @@ export interface AbcEvent {
   notes?: AbcNoteInfo[];
 }
 
-export function flattenPolyphonyToChords(notes: any[]): AbcEvent[] {
+type TimedNote = { midi: number; ticks: number; durationTicks: number };
+
+export function flattenPolyphonyToChords(notes: TimedNote[]): AbcEvent[] {
   if (notes.length === 0) return [];
   const boundaries = new Set<number>();
   // Ensure the timeline always starts at 0 to capture initial rests
@@ -178,7 +180,10 @@ const CANDIDATE_L_RATIOS = [
   { num: 1, den: 24 },
 ];
 
-export function determineBestLUnit(notes: any[], ppq: number): { str: string; ticks: number } {
+export function determineBestLUnit(
+  notes: TimedNote[],
+  ppq: number
+): { str: string; ticks: number } {
   const counts = new Map<number, number>();
   notes.forEach((n) => counts.set(n.durationTicks, (counts.get(n.durationTicks) || 0) + 1));
   let dominantTicks = 0;
