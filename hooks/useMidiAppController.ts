@@ -194,6 +194,7 @@ export const useMidiAppController = () => {
       ui.setPianoRollTrackData(data);
       ui.setIsPianoRollVisible(true);
     } catch (e) {
+      console.error('Piano roll generation failed:', e);
       ui.setErrorMessage('Could not generate piano roll.');
     }
   };
@@ -205,6 +206,7 @@ export const useMidiAppController = () => {
       ui.setAnalysisData(analysis);
       ui.setIsAnalysisVisible(true);
     } catch (e) {
+      console.error('Track analysis failed:', e);
       ui.setErrorMessage('Could not analyze track.');
     }
   };
@@ -220,6 +222,7 @@ export const useMidiAppController = () => {
       ui.setAnalysisData(analysis);
       ui.setIsAnalysisVisible(true);
     } catch (e) {
+      console.error('Selection analysis failed:', e);
       ui.setErrorMessage('Could not analyze selection.');
     }
   };
