@@ -68,6 +68,16 @@ Important implementation note:
 - this module is not the sole mandatory engine for all export paths today.
 - the active export pipeline is primarily driven by `midiPipeline` + `midiTransform`.
 
+## 4b) Shared service utilities
+
+- `components/services/timeUtils.ts`: single source of truth for
+  `ticksPerMeasure()` and the prune/short-note threshold ladder
+  (`pruneThresholdTicks()` / `PRUNE_THRESHOLD_MULTIPLIERS`).
+- `components/services/debug.ts`: flag-gated `debugLog` (off unless
+  `__MIDI_ENGINEER_DEBUG__` / `MIDI_ENGINEER_DEBUG` is set) and `debugWarn`.
+- `shadowQuantizer.ts` exposes `SHADOW_TUNING` and `SHADOW_PENALTIES` constant
+  objects documenting the Pass 1 gates and Pass 2 objective weights.
+
 ## 5) Known gap vs target architecture
 
 The target spec expects a fully contextual Pass 2 conflict resolver (density blips, overlap negotiation, contextual rhythm consistency, etc.).

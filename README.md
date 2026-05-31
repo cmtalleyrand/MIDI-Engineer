@@ -70,10 +70,22 @@ This split exists because notation readability and performance-preserving MIDI o
 
 ```bash
 npm install
-npm run dev
-npm run build
-npm run preview
+npm run dev       # start the Vite dev server (port 3000)
+npm run build     # production build to dist/
+npm run preview   # preview the production build
 ```
+
+### Quality checks
+
+```bash
+npm run typecheck # tsc --noEmit
+npm run lint      # ESLint
+npm run format    # Prettier (write); use format:check in CI
+npm test          # fixture-based snapshot/integration suite
+```
+
+These also run automatically in CI (`.github/workflows/ci.yml`) on pull requests
+and branch pushes.
 
 ## GitHub Pages Deployment
 

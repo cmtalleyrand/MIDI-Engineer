@@ -11,6 +11,37 @@ Purpose: persistent high-detail project memory for future AI sessions and mainta
 
 ## [Unreleased]
 
+### Added / Changed - Code-review Phase 1: tooling, cleanup & type-safety foundation
+
+Behaviour-preserving foundation pass (fixture snapshot byte-identical throughout).
+
+- **Dev tooling**: ESLint v9 flat config (typescript-eslint, react, react-hooks),
+  Prettier, `.editorconfig`. New npm scripts: `typecheck`, `lint`, `lint:fix`,
+  `format`, `format:check`. `no-explicit-any` is a warning while the `any`
+  cleanup is in progress; real correctness rules are errors.
+- **CI**: new `.github/workflows/ci.yml` runs typecheck + lint + test + build on
+  PRs and branch pushes; `deploy-pages.yml` left untouched.
+- **Formatting**: one-time Prettier pass across the repo (isolated commit).
+- **Dedupe / constants**: new `components/services/timeUtils.ts` centralizes
+  `ticksPerMeasure()` and `pruneThresholdTicks()`, replacing 9+ duplicated
+  measure calculations and the triplicated prune-multiplier array across
+  midiTransform, midiPipeline, midiVoices and drumGenerator. Removed the unused
+  `getCombinations()` helper. Named the shadow-quantizer tuning/penalty magic
+  numbers as `SHADOW_TUNING` / `SHADOW_PENALTIES` (values unchanged).
+- **PianoRoll**: memoized `totalTicks`/`ticksPerMeasure`/`totalMeasures`.
+- **Logging**: new flag-gated `components/services/debug.ts` (`debugLog`/
+  `debugWarn`); routed the pipeline's ad-hoc console calls through it and added
+  `console.error` to the previously silent analyze/piano-roll catch handlers.
+- **Type safety**: typed midiTransform's transform functions with `RawNote[]`
+  (made `pruneOverlaps` generic). This surfaced and fixed a latent bug where
+  spreading a tonejs `Note` dropped its `name` getter, leaving `RawNote.name`
+  undefined on the analysis transform paths. Lint warnings 165 -> 118.
+
+Remaining (tracked for later phases): splitting the 500-line service monoliths,
+eradicating the residual `any` usage, and the Phase 2 feature work (real
+constraint-based voice solver, Shadow Quantization Pass 2 contextual solver,
+ornament pipeline wiring, and the debug/trace transparency surface).
+
 ### Fixed - Ornament detector correctness and spec alignment
 
 - **Turn span bug**: span was computed as `getEnd(e) - a.ticks`, including the sustained
