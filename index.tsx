@@ -15,7 +15,6 @@ if (!rootElement) {
   throw new Error('Could not find root element to mount to');
 }
 
-
 const bootstrapFallbackElement = document.getElementById('boot-fallback');
 if (bootstrapFallbackElement) {
   bootstrapFallbackElement.remove();
@@ -63,25 +62,35 @@ const renderBootstrapFallback = (error: unknown, source: string): void => {
       }
     } catch {
       if (copyStatus) {
-        copyStatus.textContent = 'Could not copy automatically. Select and copy the diagnostics text manually.';
+        copyStatus.textContent =
+          'Could not copy automatically. Select and copy the diagnostics text manually.';
       }
     }
   });
 
   const clearOfflineCacheButton = document.getElementById('clear-offline-cache');
   if (clearOfflineCacheButton) {
-    clearOfflineCacheButton.addEventListener('click', async () => {
-      clearOfflineCacheButton.textContent = 'Reset offline data';
-      clearOfflineCacheButton.addEventListener('click', async () => {
-        await clearOfflineCache();
-        hardRefresh();
-      }, { once: true });
+    clearOfflineCacheButton.addEventListener(
+      'click',
+      async () => {
+        clearOfflineCacheButton.textContent = 'Reset offline data';
+        clearOfflineCacheButton.addEventListener(
+          'click',
+          async () => {
+            await clearOfflineCache();
+            hardRefresh();
+          },
+          { once: true }
+        );
 
-      const copyStatus = document.getElementById('copy-status');
-      if (copyStatus) {
-        copyStatus.textContent = 'Advanced recovery revealed. Click “Reset offline data” to clear service workers and cache storage, then reload.';
-      }
-    }, { once: true });
+        const copyStatus = document.getElementById('copy-status');
+        if (copyStatus) {
+          copyStatus.textContent =
+            'Advanced recovery revealed. Click “Reset offline data” to clear service workers and cache storage, then reload.';
+        }
+      },
+      { once: true }
+    );
   }
 };
 

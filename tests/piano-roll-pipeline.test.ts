@@ -2,7 +2,11 @@ import * as assert from 'node:assert/strict';
 import { Midi } from '@tonejs/midi';
 
 import type { ConversionOptions } from '../types';
-import { copyAndTransformTrackEvents, copyHeaderEvents, getTransformedTrackDataForPianoRoll } from '../components/services/midiPipeline';
+import {
+  copyAndTransformTrackEvents,
+  copyHeaderEvents,
+  getTransformedTrackDataForPianoRoll,
+} from '../components/services/midiPipeline';
 
 function buildOptions(partial: Partial<ConversionOptions> = {}): ConversionOptions {
   return {
@@ -31,8 +35,14 @@ function buildOptions(partial: Partial<ConversionOptions> = {}): ConversionOptio
     voiceSeparationDisableChords: false,
     outputStrategy: 'combine',
     keySignatureSpelling: 'auto',
-    abcKeyExport: { enabled: false, tonicLetter: 'C', tonicAccidental: '=', mode: 'maj', additionalAccidentals: [] },
-    ...partial
+    abcKeyExport: {
+      enabled: false,
+      tonicLetter: 'C',
+      tonicAccidental: '=',
+      mode: 'maj',
+      additionalAccidentals: [],
+    },
+    ...partial,
   };
 }
 
@@ -47,13 +57,28 @@ export function runPianoRollPipelineTests() {
   const options = buildOptions({ removeShortNotesThreshold: 15 });
 
   const transformed = getTransformedTrackDataForPianoRoll(midi, 0, options);
-  assert.equal(transformed.notes.length, 1, 'Piano roll transform should keep notes that are above the configured short-note threshold.');
+  assert.equal(
+    transformed.notes.length,
+    1,
+    'Piano roll transform should keep notes that are above the configured short-note threshold.'
+  );
 
   // Validate the shared event-copy/transform path used by MIDI/ABC export also retains the note.
   const exportMidi = new Midi();
   const exportTrack = exportMidi.addTrack();
-  copyAndTransformTrackEvents(track, exportTrack, options, new Set(), exportMidi.header, midi.header.ppq);
-  assert.equal(exportTrack.notes.length, 1, 'Export transform path should keep the same note (prevents empty ABC/MIDI exports).');
+  copyAndTransformTrackEvents(
+    track,
+    exportTrack,
+    options,
+    new Set(),
+    exportMidi.header,
+    midi.header.ppq
+  );
+  assert.equal(
+    exportTrack.notes.length,
+    1,
+    'Export transform path should keep the same note (prevents empty ABC/MIDI exports).'
+  );
 
   const duplicateMidi = new Midi();
   const duplicateTrack = duplicateMidi.addTrack();
@@ -68,18 +93,35 @@ export function runPianoRollPipelineTests() {
   const originalWarn = console.warn;
   console.warn = (...args: unknown[]) => warnings.push(args.map(String).join(' '));
   try {
-    copyAndTransformTrackEvents(duplicateTrack, dedupeExportTrack, buildOptions(), new Set(), dedupeExportMidi.header, duplicateMidi.header.ppq);
+    copyAndTransformTrackEvents(
+      duplicateTrack,
+      dedupeExportTrack,
+      buildOptions(),
+      new Set(),
+      dedupeExportMidi.header,
+      duplicateMidi.header.ppq
+    );
   } finally {
     console.warn = originalWarn;
   }
 
-  assert.equal(dedupeExportTrack.notes.length, 2, 'Export transform path should remove exact duplicate notes while keeping unique notes.');
   assert.equal(
-    dedupeExportTrack.notes.filter(note => note.midi === 64 && note.ticks === 960 && note.durationTicks === 240).length,
+    dedupeExportTrack.notes.length,
+    2,
+    'Export transform path should remove exact duplicate notes while keeping unique notes.'
+  );
+  assert.equal(
+    dedupeExportTrack.notes.filter(
+      (note) => note.midi === 64 && note.ticks === 960 && note.durationTicks === 240
+    ).length,
     1,
     'Only one instance of an identical duplicated note should remain after export processing.'
   );
-  assert.equal(warnings.length, 1, 'Duplicate-note removal should emit a single warning for the track.');
+  assert.equal(
+    warnings.length,
+    1,
+    'Duplicate-note removal should emit a single warning for the track.'
+  );
   assert.match(
     warnings[0],
     /Export Duplicate Notes.*Duplicate-note export regression.*midi=64.*@M1:B3\+0\.00.*duration=0\.5 beat\(s\)/i,
@@ -90,7 +132,7 @@ export function runPianoRollPipelineTests() {
   Object.defineProperty(tempoMidi.header, 'ppq', { value: 480 });
   tempoMidi.header.tempos = [
     { ticks: 0, bpm: 120 },
-    { ticks: 960, bpm: 60 }
+    { ticks: 960, bpm: 60 },
   ];
   tempoMidi.header.timeSignatures = [{ ticks: 0, timeSignature: [4, 4] }];
   tempoMidi.header.update();
@@ -113,12 +155,12 @@ export function runPianoRollPipelineTests() {
   );
 
   assert.deepEqual(
-    tempoExportTrack.notes.map(n => n.ticks),
+    tempoExportTrack.notes.map((n) => n.ticks),
     [900, 960],
     'Tempo-map preservation: note onset ticks must remain invariant under speed-mode transforms even when tempo changes are present.'
   );
   assert.deepEqual(
-    tempoExportTrack.notes.map(n => n.durationTicks),
+    tempoExportTrack.notes.map((n) => n.durationTicks),
     [60, 240],
     'Tempo-map preservation: note duration ticks must remain invariant under speed-mode transforms even when tempo changes are present.'
   );

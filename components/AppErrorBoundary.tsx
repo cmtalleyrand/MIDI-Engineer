@@ -77,8 +77,8 @@ export class AppErrorBoundary extends React.Component<
           The app hit an unexpected exception and stopped. This does not assume any specific cause.
         </p>
         <p style={styles.text}>
-          Use the diagnostics below for debugging. You can reload to retry, and use advanced recovery only
-          if you explicitly want to reset browser-managed offline state.
+          Use the diagnostics below for debugging. You can reload to retry, and use advanced
+          recovery only if you explicitly want to reset browser-managed offline state.
         </p>
 
         <pre style={styles.diagnostics}>{formatDiagnostics(details)}</pre>
@@ -87,11 +87,7 @@ export class AppErrorBoundary extends React.Component<
           <button style={styles.primaryButton} type="button" onClick={hardRefresh}>
             Reload app
           </button>
-          <button
-            style={styles.secondaryButton}
-            type="button"
-            onClick={this.handleCopyDiagnostics}
-          >
+          <button style={styles.secondaryButton} type="button" onClick={this.handleCopyDiagnostics}>
             Copy diagnostics
           </button>
           {canClearOfflineCache() && !showAdvancedRecovery ? (
@@ -115,14 +111,17 @@ export class AppErrorBoundary extends React.Component<
         </div>
         {showAdvancedRecovery ? (
           <p style={styles.status}>
-            Advanced recovery clears service workers and browser cache storage for this origin before reloading.
+            Advanced recovery clears service workers and browser cache storage for this origin
+            before reloading.
           </p>
         ) : null}
         {copyStatus === 'copied' ? (
           <p style={styles.status}>Diagnostics copied to clipboard.</p>
         ) : null}
         {copyStatus === 'failed' ? (
-          <p style={styles.status}>Could not copy automatically. Select and copy the text block manually.</p>
+          <p style={styles.status}>
+            Could not copy automatically. Select and copy the text block manually.
+          </p>
         ) : null}
       </section>
     );

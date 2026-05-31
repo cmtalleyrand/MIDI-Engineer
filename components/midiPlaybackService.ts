@@ -27,7 +27,7 @@ export function playTrack(processedMidi: Midi, onEnded: () => void): void {
     onEnded();
     return;
   }
-  
+
   const track = processedMidi.tracks[0];
   if (!track.notes || track.notes.length === 0) {
     console.warn('Track has no notes to play.');
@@ -42,13 +42,13 @@ export function playTrack(processedMidi: Midi, onEnded: () => void): void {
   if (tempo) {
     Tone.Transport.bpm.value = tempo;
   }
-  
+
   // Create a Tone.Part from the track's notes
   currentPart = new Tone.Part(
     (time, note) => {
       synth.triggerAttackRelease(note.name, note.duration, time, note.velocity);
     },
-    track.notes.map(note => ({
+    track.notes.map((note) => ({
       time: note.time,
       name: note.name,
       duration: note.duration,
@@ -69,10 +69,16 @@ export function playTrack(processedMidi: Midi, onEnded: () => void): void {
   Tone.Transport.start();
 
   // Schedule the transport to stop after the last note completes
-  const partDuration = track.notes.reduce((maxEnd, note) => Math.max(maxEnd, note.time + note.duration), 0);
-  Tone.Transport.scheduleOnce(() => {
-    Tone.Transport.stop();
-  }, `+${partDuration + 0.5}`); // Add a small buffer
+  const partDuration = track.notes.reduce(
+    (maxEnd, note) => Math.max(maxEnd, note.time + note.duration),
+    0
+  );
+  Tone.Transport.scheduleOnce(
+    () => {
+      Tone.Transport.stop();
+    },
+    `+${partDuration + 0.5}`
+  ); // Add a small buffer
 }
 
 export function stopPlayback(): void {
