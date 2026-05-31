@@ -10,6 +10,7 @@ import {
 } from './midiTransform';
 import { distributeToVoices } from './midiVoices';
 import { ticksPerMeasure, pruneThresholdTicks } from './timeUtils';
+import { debugLog, debugWarn } from './debug';
 
 export type ExportTarget = 'midi' | 'abc';
 
@@ -94,7 +95,7 @@ export function resolveExportOptions(
 }
 
 export function logExportResolution(debug: ExportResolutionDebugInfo): void {
-  console.debug(`[Export Resolution] ${debug.target.toUpperCase()} quantization path`, debug);
+  debugLog(`[Export Resolution] ${debug.target.toUpperCase()} quantization path`, debug);
 }
 
 interface DuplicateNoteIssue {
@@ -154,7 +155,7 @@ function dedupeNotesAndReport(
           `midi=${issue.midi} @M${issue.measure}:B${issue.beat}+${issue.beatSubdivision} duration=${issue.durationBeats} beat(s) (removed=${issue.duplicateCount})`
       )
       .join('; ');
-    console.warn(
+    debugWarn(
       `[Export Duplicate Notes] Removed ${removedCount} duplicate note(s) from track "${trackName || 'Untitled Track'}": ${issueSummary}`
     );
   }
