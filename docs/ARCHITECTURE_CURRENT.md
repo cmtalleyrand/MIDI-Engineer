@@ -77,6 +77,14 @@ Important implementation note:
   `__MIDI_ENGINEER_DEBUG__` / `MIDI_ENGINEER_DEBUG` is set) and `debugWarn`.
 - `shadowQuantizer.ts` exposes `SHADOW_TUNING` and `SHADOW_PENALTIES` constant
   objects documenting the Pass 1 gates and Pass 2 objective weights.
+- Drum generation is split across `drumKit.ts` (GM map, shared types/helpers),
+  `beatDetection.ts` (beat profile + timpani pitch detection) and
+  `drumPatterns.ts` (the three pattern generators); `drumGenerator.ts` is a thin
+  orchestrator re-exporting the public API.
+
+> Note: a stale duplicate of the analysis module exists at the repository root
+> (`midiAnalysis.ts`); the live one is `components/services/midiAnalysis.ts`.
+> The root copy is imported by nothing and is a candidate for removal.
 
 ## 5) Known gap vs target architecture
 

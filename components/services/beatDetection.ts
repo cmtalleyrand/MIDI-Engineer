@@ -1,11 +1,7 @@
 import { Midi } from '@tonejs/midi';
 import { predictKey } from './analysis/keyPrediction';
 import { ticksPerMeasure as measureTicks } from './timeUtils';
-import {
-  BeatWeightProfile,
-  SUBDIVISIONS_PER_MEASURE,
-  STRONG_BEAT_THRESHOLD,
-} from './drumKit';
+import { BeatWeightProfile, SUBDIVISIONS_PER_MEASURE, STRONG_BEAT_THRESHOLD } from './drumKit';
 
 /**
  * Build a normalized per-subdivision weight profile from the selected tracks,
