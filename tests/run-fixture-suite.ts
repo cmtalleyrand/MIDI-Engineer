@@ -5,6 +5,7 @@ import { runFixtureSuite } from './fixture-suite.test';
 import { runPianoRollUtilsTests } from './piano-roll-utils.test';
 import { runPianoRollPipelineTests } from './piano-roll-pipeline.test';
 import { runMidiAbcPreviewTests } from './midi-abc-preview.test';
+import { runVoiceSolverTests } from './voice-solver.test';
 
 const TIMEOUT_MS = 30_000;
 const timer = setTimeout(() => {
@@ -54,6 +55,10 @@ run('Piano roll pipeline', () => {
 
 run('ABC preview generation', () => {
   runMidiAbcPreviewTests();
+});
+
+run('Voice solver', () => {
+  runVoiceSolverTests();
 });
 
 clearTimeout(timer);
