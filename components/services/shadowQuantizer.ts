@@ -315,7 +315,7 @@ function evaluateHypothesisAtIndex(
   const baseline = analyses[index].bestCandidate;
 
   const testNotes = chosen.map((n) => ({ ...n }));
-  let note = {
+  const note = {
     ...original,
     ticks: candidate.onset.ticks,
     durationTicks: candidate.duration.durationTicks,

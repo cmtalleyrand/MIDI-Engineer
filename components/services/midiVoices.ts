@@ -170,7 +170,7 @@ export function distributeToVoices(
 
         // STRATEGY: MAX DENSITY BLOCK ONLY
         if (activeNotes.length >= finalPolyphony) {
-          let mathDetails: any[] = [];
+          const mathDetails: any[] = [];
 
           for (let k = 0; k < activeNotes.length; k++) {
             if (k >= finalPolyphony) break;
@@ -262,7 +262,7 @@ export function distributeToVoices(
         .sort((a, b) => getTicks(a) - getTicks(b))[0];
 
       let cost = 0;
-      let details = [];
+      const details = [];
 
       // 1. Interval Cost
       let intervalCost = 0;

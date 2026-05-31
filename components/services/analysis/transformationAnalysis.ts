@@ -33,7 +33,7 @@ export function getQuantizationWarning(
       const dur = n.durationTicks;
 
       if (quantizationTicks > 0) {
-        let quantizedDuration = Math.round(dur / quantizationTicks) * quantizationTicks;
+        const quantizedDuration = Math.round(dur / quantizationTicks) * quantizationTicks;
         if (quantizedDuration < quantizationTicks) clampedNotesCount++;
         if (quantizedDuration < Math.floor(ppq / 32)) {
           microNotesCount++;

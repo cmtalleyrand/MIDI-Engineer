@@ -239,7 +239,7 @@ export function analyzeTrackSelection(
   newMidi.header.setTempo(options?.tempo || bpm);
   newMidi.header.timeSignatures = [{ ticks: 0, timeSignature: [ts[0], ts[1]] }];
 
-  let aggregatedNotes: any[] = [];
+  const aggregatedNotes: any[] = [];
 
   trackIds.forEach((id, voiceIndex) => {
     const originalTrack = midi.tracks[id];
