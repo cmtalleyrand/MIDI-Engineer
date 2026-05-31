@@ -7,6 +7,56 @@ enum ShadowConfidence {
   AMBIGUOUS = 1,
 }
 
+/**
+ * Tuning constants for shadow quantization. Centralized here so the Pass 1
+ * classification gates and Pass 2 conflict-resolution penalties are documented
+ * and adjustable in one place rather than scattered as inline magic numbers.
+ */
+export const SHADOW_TUNING = {
+  /** Pass 1 absolute precision gate: fraction of the finest grid quantum. */
+  ABS_TOLERANCE_QUANTUM_FRACTION: 0.15,
+  /** Floor for the absolute tolerance, in ticks. */
+  ABS_TOLERANCE_FLOOR_TICKS: 5,
+  /** Pass 1 relative clarity gate (the "50% rule"). */
+  RELATIVE_CLARITY_RATIO: 0.5,
+  /** Half-window (in notes) used when sampling the local dominant rhythm family. */
+  LOCAL_CONTEXT_WINDOW: 3,
+} as const;
+
+/** Pass 2 objective-function penalty weights (see PROJECT_INTENT §2.5). */
+export const SHADOW_PENALTIES = {
+  /** Unresolvable unison overlap (accommodation not possible). */
+  UNISON_OVERLAP_HARD: 90,
+  /** Per net-new unison overlap introduced versus the baseline. */
+  OVERLAP_PER_INSTANCE: 50,
+  /** Per net-new short polyphony blip, when the note is high-confidence. */
+  BLIP_HIGH_CONFIDENCE: 80,
+  /** Per net-new short polyphony blip, when the note is low-confidence. */
+  BLIP_LOW_CONFIDENCE: 55,
+  /** Local rhythm-family mismatch penalty for a high-confidence note. */
+  CONTEXT_CERTAIN: 8,
+  /** Local rhythm-family mismatch penalty for a low-confidence note. */
+  CONTEXT_UNCERTAIN: 16,
+  /** Hard penalty for reordering note onsets. */
+  ORDERING: 200,
+  /** Duration change outside the [0.5x, 2x] band. */
+  DURATION_EXTREME: 70,
+  /** Scaling for in-band duration change. */
+  DURATION_SCALING: 18,
+  /** Onset shift beyond the allowed limit. */
+  ONSET_EXTREME: 70,
+  /** Scaling for in-limit onset shift. */
+  ONSET_SCALING: 10,
+  /** Per active overlap instance contributing to the combined term. */
+  OVERLAP_COUNT_WEIGHT: 10,
+  /** Cost of editing a CERTAIN assignment. */
+  EDIT_CERTAIN: 35,
+  /** Cost of editing a WEAK_PRIMARY assignment. */
+  EDIT_WEAK_PRIMARY: 14,
+  /** Cost of editing an AMBIGUOUS assignment. */
+  EDIT_AMBIGUOUS: 4,
+} as const;
+
 interface ShadowGridCandidate {
   ticks: number;
   error: number;
@@ -129,7 +179,10 @@ function analyzeShadowCertainty(
     secondary.enabled && secondaryQuantum > 0
       ? Math.min(primaryQuantum, secondaryQuantum)
       : primaryQuantum;
-  const absTolerance = Math.max(minQuantum * 0.15, 5);
+  const absTolerance = Math.max(
+    minQuantum * SHADOW_TUNING.ABS_TOLERANCE_QUANTUM_FRACTION,
+    SHADOW_TUNING.ABS_TOLERANCE_FLOOR_TICKS
+  );
 
   return notes.map((note) => {
     const hypotheses: ShadowHypothesis[] = [];
@@ -215,7 +268,7 @@ function analyzeShadowCertainty(
     } else if (secondBest) {
       const bestError = best.onsetError + best.durationError;
       const secondError = secondBest.onsetError + secondBest.durationError;
-      if (bestError <= 0.5 * secondError) {
+      if (bestError <= SHADOW_TUNING.RELATIVE_CLARITY_RATIO * secondError) {
         confidence = ShadowConfidence.WEAK_PRIMARY;
       } else {
         confidence = ShadowConfidence.AMBIGUOUS;
@@ -284,8 +337,8 @@ function countShortPolyphonyBlips(notes: RawNote[], ppq: number): number {
 }
 
 function localDominantFamily(analyses: ShadowNoteAnalysis[], index: number): RhythmFamily {
-  const start = Math.max(0, index - 3);
-  const end = Math.min(analyses.length - 1, index + 3);
+  const start = Math.max(0, index - SHADOW_TUNING.LOCAL_CONTEXT_WINDOW);
+  const end = Math.min(analyses.length - 1, index + SHADOW_TUNING.LOCAL_CONTEXT_WINDOW);
   const counts = new Map<RhythmFamily, number>();
   for (let i = start; i <= end; i++) {
     const family = analyses[i].bestCandidate.family;
@@ -350,7 +403,7 @@ function evaluateHypothesisAtIndex(
             };
             note.durationTicks = shortened;
           } else {
-            overlapPenalty += 90;
+            overlapPenalty += SHADOW_PENALTIES.UNISON_OVERLAP_HARD;
           }
         } else {
           const shortenedExisting = Math.max(
@@ -360,7 +413,7 @@ function evaluateHypothesisAtIndex(
           if (shortenedExisting < existing.durationTicks) {
             existing.durationTicks = shortenedExisting;
           } else {
-            overlapPenalty += 90;
+            overlapPenalty += SHADOW_PENALTIES.UNISON_OVERLAP_HARD;
           }
         }
       }
@@ -372,7 +425,8 @@ function evaluateHypothesisAtIndex(
 
   const baselineOverlaps = countUnisonOverlaps(chosen);
   const candidateOverlaps = countUnisonOverlaps(testNotes);
-  overlapPenalty += Math.max(0, candidateOverlaps - baselineOverlaps) * 50;
+  overlapPenalty +=
+    Math.max(0, candidateOverlaps - baselineOverlaps) * SHADOW_PENALTIES.OVERLAP_PER_INSTANCE;
 
   // Type 2 blip flattening.
   const baselineBlips = countShortPolyphonyBlips(chosen, ppq);
@@ -380,7 +434,9 @@ function evaluateHypothesisAtIndex(
   let blipPenalty = 0;
   if (candidateBlips > baselineBlips) {
     const isLowConfidence = confidence !== ShadowConfidence.CERTAIN;
-    blipPenalty += (candidateBlips - baselineBlips) * (isLowConfidence ? 55 : 80);
+    blipPenalty +=
+      (candidateBlips - baselineBlips) *
+      (isLowConfidence ? SHADOW_PENALTIES.BLIP_LOW_CONFIDENCE : SHADOW_PENALTIES.BLIP_HIGH_CONFIDENCE);
     conflictTypes.push('type2_polyphony_blip');
   }
 
@@ -388,7 +444,10 @@ function evaluateHypothesisAtIndex(
   const dominant = localDominantFamily(analyses, index);
   let contextPenalty = 0;
   if (candidate.family !== dominant) {
-    contextPenalty += confidence === ShadowConfidence.CERTAIN ? 8 : 16;
+    contextPenalty +=
+      confidence === ShadowConfidence.CERTAIN
+        ? SHADOW_PENALTIES.CONTEXT_CERTAIN
+        : SHADOW_PENALTIES.CONTEXT_UNCERTAIN;
     conflictTypes.push('type3_contextual_rhythm');
   }
 
@@ -396,30 +455,38 @@ function evaluateHypothesisAtIndex(
   const noteRetention = 0; // no deletion allowed in solver path
 
   const previous = testNotes.length > 1 ? testNotes[testNotes.length - 2] : undefined;
-  const ordering = previous && note.ticks < previous.ticks ? 200 : 0;
+  const ordering = previous && note.ticks < previous.ticks ? SHADOW_PENALTIES.ORDERING : 0;
 
   const rawDuration = Math.max(1, original.durationTicks);
   const durationRatio = note.durationTicks / rawDuration;
   const durationPenalty =
     durationRatio < 0.5 || durationRatio > 2
-      ? 70
-      : (Math.abs(note.durationTicks - rawDuration) / Math.max(1, rawDuration)) * 18;
+      ? SHADOW_PENALTIES.DURATION_EXTREME
+      : (Math.abs(note.durationTicks - rawDuration) / Math.max(1, rawDuration)) *
+        SHADOW_PENALTIES.DURATION_SCALING;
 
   const onsetShift = Math.abs(note.ticks - original.ticks);
   const onsetLimit = Math.min(ppq / 2, 1.5 * Math.max(1, note.durationTicks));
-  const onsetPenalty = onsetShift > onsetLimit ? 70 : (onsetShift / Math.max(1, ppq / 8)) * 10;
+  const onsetPenalty =
+    onsetShift > onsetLimit
+      ? SHADOW_PENALTIES.ONSET_EXTREME
+      : (onsetShift / Math.max(1, ppq / 8)) * SHADOW_PENALTIES.ONSET_SCALING;
   const movement = durationPenalty + onsetPenalty;
 
-  const overlapAndBlip = overlapPenalty + blipPenalty + contextPenalty + overlapCount * 10;
+  const overlapAndBlip =
+    overlapPenalty + blipPenalty + contextPenalty + overlapCount * SHADOW_PENALTIES.OVERLAP_COUNT_WEIGHT;
 
   const candidateChanged =
     candidate.onset.ticks !== baseline.onset.ticks ||
     candidate.duration.durationTicks !== baseline.duration.durationTicks;
   let confidenceAwareEdit = 0;
   if (candidateChanged) {
-    if (confidence === ShadowConfidence.CERTAIN) confidenceAwareEdit += 35;
-    if (confidence === ShadowConfidence.WEAK_PRIMARY) confidenceAwareEdit += 14;
-    if (confidence === ShadowConfidence.AMBIGUOUS) confidenceAwareEdit += 4;
+    if (confidence === ShadowConfidence.CERTAIN)
+      confidenceAwareEdit += SHADOW_PENALTIES.EDIT_CERTAIN;
+    if (confidence === ShadowConfidence.WEAK_PRIMARY)
+      confidenceAwareEdit += SHADOW_PENALTIES.EDIT_WEAK_PRIMARY;
+    if (confidence === ShadowConfidence.AMBIGUOUS)
+      confidenceAwareEdit += SHADOW_PENALTIES.EDIT_AMBIGUOUS;
   }
 
   const total = noteRetention + ordering + movement + overlapAndBlip + confidenceAwareEdit;

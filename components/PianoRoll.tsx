@@ -1,7 +1,8 @@
-import React, { useRef, useEffect, useState, useLayoutEffect } from 'react';
-import { PianoRollTrackData, VoiceExplanation, VoiceAllocationMath } from '../types';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
+import { PianoRollTrackData, VoiceAllocationMath } from '../types';
 import { getVoiceLabel } from './services/midiVoices';
 import { canSelectPianoRollNote, sortNotesForPianoRollRendering } from './services/pianoRollUtils';
+import { ticksPerMeasure as measureTicks } from './services/timeUtils';
 import { CloseIcon } from './Icons';
 
 interface PianoRollProps {
@@ -95,6 +96,24 @@ const PianoRoll: React.FC<PianoRollProps> = ({ trackData }) => {
   const maxVoiceIdx = notes.reduce((max, n) => Math.max(max, n.voiceIndex ?? -1), -1);
   const totalVoices = maxVoiceIdx + 1;
 
+  // Dimensions are pure functions of the note set and time signature; memoize so
+  // they aren't recomputed on every unrelated render (e.g. zoom/scroll updates).
+  const { totalTicks, ticksPerMeasure, totalMeasures } = useMemo(() => {
+    const tt =
+      notes.length > 0
+        ? Math.max(
+            ...notes.map((n) => n.ticks + n.durationTicks),
+            ppq * 4 * timeSignature.numerator
+          )
+        : ppq * 4 * timeSignature.numerator;
+    const tpm = measureTicks(ppq, timeSignature);
+    return {
+      totalTicks: tt,
+      ticksPerMeasure: tpm,
+      totalMeasures: Math.ceil(tt / tpm) + 1, // +1 for buffer
+    };
+  }, [notes, ppq, timeSignature]);
+
   // Auto-scroll to the average pitch of the notes on mount
   useEffect(() => {
     if (gridContainerRef.current && notes.length > 0) {
@@ -133,14 +152,6 @@ const PianoRoll: React.FC<PianoRollProps> = ({ trackData }) => {
       </div>
     );
   }
-
-  // Calculate dimensions
-  const totalTicks = Math.max(
-    ...notes.map((n) => n.ticks + n.durationTicks),
-    ppq * 4 * timeSignature.numerator
-  );
-  const ticksPerMeasure = ppq * timeSignature.numerator * (4 / timeSignature.denominator);
-  const totalMeasures = Math.ceil(totalTicks / ticksPerMeasure) + 1; // +1 for buffer
 
   // Dynamic width based on zoom
   const BASE_TICK_WIDTH = 0.15;
