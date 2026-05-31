@@ -1,6 +1,3 @@
-import { TrackAnalysisData } from '../../../types';
-import { NOTE_NAMES } from '../midiCore';
-
 const KEYS = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
 
 const STANDARD_MODES = {

@@ -1,4 +1,4 @@
-import { RawNote, ConversionOptions, VoiceExplanation } from '../../types';
+import { RawNote, ConversionOptions } from '../../types';
 import { ticksPerMeasure } from './timeUtils';
 
 const getMidi = (n: any | RawNote) => ('midi' in n ? n.midi : (n as any).midi);
@@ -6,7 +6,6 @@ const getTicks = (n: any | RawNote) => ('ticks' in n ? n.ticks : (n as any).tick
 const getDuration = (n: any | RawNote) =>
   'durationTicks' in n ? n.durationTicks : (n as any).durationTicks;
 const getEnd = (n: any | RawNote) => getTicks(n) + getDuration(n);
-const getName = (n: any | RawNote) => ('name' in n ? n.name : (n as any).name);
 
 export function getVoiceLabel(index: number, total: number): string {
   if (index === -1) return 'Orph';
