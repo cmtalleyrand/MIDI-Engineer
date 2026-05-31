@@ -1,5 +1,26 @@
 import { Midi } from '@tonejs/midi';
-import { TrackAnalysisData, NoteValueStat, ConversionOptions, RawNote } from '../../types';
+import {
+  TrackAnalysisData,
+  NoteValueStat,
+  ConversionOptions,
+  RawNote,
+  TransformationStats,
+  ChordEvent,
+} from '../../types';
+
+// Note objects flowing through analysis are tonejs Notes / RawNotes that may
+// carry voice and ornament annotations added by earlier passes.
+type AnalyzableNote = {
+  midi: number;
+  ticks: number;
+  durationTicks: number;
+  velocity: number;
+  name: string;
+  time?: number;
+  duration?: number;
+  voiceIndex?: number;
+  isOrnament?: boolean;
+};
 import { detectAndTagOrnaments, NOTE_NAMES } from './midiCore';
 import { distributeToVoices } from './midiVoices';
 import { detectChordsSustain, detectChordsAttack, detectChordsBucketed } from './midiHarmony';
@@ -58,7 +79,7 @@ export function generateAnalysisReport(data: TrackAnalysisData): string {
 
   r += `\n2. KEY & HARMONY\nPredicted Key: ${bestKeyPrediction ? `${NOTE_NAMES[bestKeyPrediction.root]} ${bestKeyPrediction.mode} (${Math.round(bestKeyPrediction.score * 100)}%)` : 'Undetermined'}\n\n`;
 
-  const print = (title: string, list: any[]) => {
+  const print = (title: string, list: ChordEvent[]) => {
     let out = `3. ${title}\n`;
     if (!list || list.length === 0) out += `No chords detected.\n`;
     else
@@ -91,13 +112,13 @@ export function generateAnalysisReport(data: TrackAnalysisData): string {
  * Shared core logic for analysis after notes have been prepared and voices assigned.
  */
 function analyzePreparedNotes(
-  notes: any[],
+  notes: AnalyzableNote[],
   trackName: string,
   ppq: number,
   ts: number[],
   bpm: number,
   voiceCount: number,
-  transformStats?: any,
+  transformStats?: TransformationStats,
   outputNoteValues?: NoteValueStat[]
 ): TrackAnalysisData {
   const notesRaw: RawNote[] = notes.map((n) => ({
@@ -108,8 +129,8 @@ function analyzePreparedNotes(
     name: n.name,
     time: n.time,
     duration: n.duration,
-    voiceIndex: (n as any).voiceIndex ?? 0,
-    isOrnament: (n as any).isOrnament,
+    voiceIndex: n.voiceIndex ?? 0,
+    isOrnament: n.isOrnament,
   }));
 
   if (notes.length === 0)
@@ -173,7 +194,15 @@ export function analyzeTrack(
 ): TrackAnalysisData {
   const track = midi.tracks[trackId];
   const ppq = midi.header.ppq || 480;
-  let notes: any[] = track.notes.map((n) => ({ ...n }) as any);
+  let notes: AnalyzableNote[] = track.notes.map((n) => ({
+    midi: n.midi,
+    ticks: n.ticks,
+    durationTicks: n.durationTicks,
+    velocity: n.velocity,
+    name: n.name,
+    time: n.time,
+    duration: n.duration,
+  }));
   const ts = midi.header.timeSignatures[0]?.timeSignature || [4, 4];
 
   if (options?.detectOrnaments) notes = detectAndTagOrnaments(notes, ppq);
@@ -205,7 +234,7 @@ export function analyzeTrack(
   }
 
   // Assign voice index
-  const noteVoiceMap = new Map<any, number>();
+  const noteVoiceMap = new Map<object, number>();
   voices.forEach((vNotes, vIdx) => vNotes.forEach((n) => noteVoiceMap.set(n, vIdx)));
 
   // Map orphans to -1
@@ -240,7 +269,7 @@ export function analyzeTrackSelection(
   newMidi.header.setTempo(options?.tempo || bpm);
   newMidi.header.timeSignatures = [{ ticks: 0, timeSignature: [ts[0], ts[1]] }];
 
-  const aggregatedNotes: any[] = [];
+  const aggregatedNotes: AnalyzableNote[] = [];
 
   trackIds.forEach((id, voiceIndex) => {
     const originalTrack = midi.tracks[id];
@@ -264,8 +293,9 @@ export function analyzeTrackSelection(
 
     // Assign voice index strictly based on track selection order
     tempTrack.notes.forEach((n) => {
-      (n as any).voiceIndex = voiceIndex;
-      aggregatedNotes.push(n);
+      const annotated = n as unknown as AnalyzableNote;
+      annotated.voiceIndex = voiceIndex;
+      aggregatedNotes.push(annotated);
     });
   });
 
