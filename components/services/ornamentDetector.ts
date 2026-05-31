@@ -28,11 +28,13 @@ export interface OrnamentHypothesis {
 }
 
 export interface OrnamentAnnotatedNote {
-  id: string;
+  // Optional on input — detectAndTagOrnaments / asAnnotated assign a stable
+  // fallback id when one is missing.
+  id?: string;
   ticks: number;
   durationTicks: number;
   midi: number;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 const cap01 = (n: number): number => Math.max(0, Math.min(1, n));

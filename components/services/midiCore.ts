@@ -4,6 +4,7 @@ import {
   detectOrnamentHypotheses,
   getDefaultOrnamentDetectionParams,
   OrnamentDetectionParams,
+  OrnamentAnnotatedNote,
   selectOrnamentHypotheses,
 } from './ornamentDetector';
 
@@ -19,32 +20,40 @@ export function analyzeMidiEvents(midi: Midi): MidiEventCounts {
 
   midi.tracks.forEach((track) => {
     counts.pitchBend += (track.pitchBends || []).length;
-    // FIX: Cast track to any to access potentially hidden programChanges property
-    counts.programChange += ((track as any).programChanges || []).length;
+    // programChanges exists at runtime but is absent from the @tonejs/midi Track
+    // typings, so read it through a narrow typed view.
+    const trackWithPC = track as unknown as { programChanges?: unknown[] };
+    counts.programChange += (trackWithPC.programChanges || []).length;
     counts.controlChange += Object.values(track.controlChanges || {}).flat().length;
   });
 
   return counts;
 }
 
-export function detectAndTagOrnaments(
-  notes: any[],
+// Minimal note shape detectAndTagOrnaments needs from callers.
+type TaggableNote = { ticks: number; midi: number; durationTicks: number; id?: string };
+
+export function detectAndTagOrnaments<T extends TaggableNote>(
+  notes: T[],
   ppq: number,
   overrides: Partial<OrnamentDetectionParams> = {}
-): any[] {
+): T[] {
   const sorted = [...notes].sort((a, b) => a.ticks - b.ticks || a.midi - b.midi);
   const params: OrnamentDetectionParams = {
     ...getDefaultOrnamentDetectionParams(ppq),
     ...overrides,
   };
-  const hypotheses = detectOrnamentHypotheses(sorted, params);
+  const hypotheses = detectOrnamentHypotheses(sorted as OrnamentAnnotatedNote[], params);
   const selected = selectOrnamentHypotheses(hypotheses);
 
-  const noteById = new Map<string, any>();
+  // The ornament tags are written through this annotated view (the dynamic
+  // `_`-fields live in RawNote-adjacent objects without an index signature).
+  const noteById = new Map<string, OrnamentAnnotatedNote>();
   sorted.forEach((n, index) => {
-    const id = n.id ?? `n_${n.ticks}_${n.midi}_${index}`;
-    n.id = id;
-    noteById.set(id, n);
+    const annotated = n as unknown as OrnamentAnnotatedNote;
+    const id = annotated.id ?? `n_${n.ticks}_${n.midi}_${index}`;
+    annotated.id = id;
+    noteById.set(id, annotated);
   });
 
   selected.forEach((h) => {
@@ -98,10 +107,14 @@ export async function parseMidiFromFile(
   }
 
   const tracks: TrackInfo[] = nonBlankTracks.map(({ t: track, i: index }) => {
-    // FIX: Using any for notes as Note is not exported
-    const notesCopy = track.notes.map((n) => ({ ...n }) as any);
+    const notesCopy = track.notes.map((n) => ({
+      midi: n.midi,
+      ticks: n.ticks,
+      durationTicks: n.durationTicks,
+    }));
     const taggedNotes = detectAndTagOrnaments(notesCopy, midi.header.ppq);
-    const ornamentCount = taggedNotes.filter((n) => (n as any).isOrnament).length;
+    const ornamentCount = taggedNotes.filter((n) => (n as { isOrnament?: boolean }).isOrnament)
+      .length;
 
     return {
       id: index, // Keep original index for referencing
