@@ -28,7 +28,11 @@ export interface RhythmAnalysisResult {
   detectedGridType: string;
 }
 
-export function analyzeRhythm(notes: any[], ppq: number, ts: number[]): RhythmAnalysisResult {
+export function analyzeRhythm(
+  notes: Array<{ ticks: number; durationTicks: number }>,
+  ppq: number,
+  ts: number[]
+): RhythmAnalysisResult {
   if (notes.length === 0) {
     return {
       topNoteValues: [],
