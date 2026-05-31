@@ -94,7 +94,7 @@ export function renderMidiToAbc(
       // Actually, we can check if it exceeds the expected polyphony, but let's just label it generic Voice N or rely on user knowing.
       // Better: If we added orphans, it's the last one.
 
-      let voiceName =
+      const voiceName =
         options.outputStrategy === 'separate_voices'
           ? getVoiceLabel(vIdx, voices.length)
           : track.name;

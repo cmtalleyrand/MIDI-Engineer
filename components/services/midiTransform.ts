@@ -48,7 +48,7 @@ export function pruneOverlaps(notes: any[], thresholdTicks: number): any[] {
   let i = 0;
 
   while (i < sorted.length) {
-    let current = { ...sorted[i] };
+    const current = { ...sorted[i] };
     let j = i + 1;
 
     while (j < sorted.length && sorted[j].midi === current.midi) {
@@ -339,7 +339,7 @@ export function cropToRange(notes: any[], options: ConversionOptions, ppq: numbe
 
   // Shift notes to start at 0
   cropped = cropped.map((n) => {
-    let newTick = n.ticks - startTick;
+    const newTick = n.ticks - startTick;
     return { ...n, ticks: newTick };
   });
 

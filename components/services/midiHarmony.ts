@@ -274,7 +274,7 @@ export function detectChordsHybrid(
     voices[v].push(n);
   });
 
-  let processedNotes: RawNote[] = [];
+  const processedNotes: RawNote[] = [];
   Object.keys(voices).forEach((vKey) => {
     const vIndex = Number(vKey);
     const strategy = voiceConfigs[vIndex] || 'sustain';

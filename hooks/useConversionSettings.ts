@@ -118,7 +118,7 @@ export const useConversionSettings = (midiData: Midi | null) => {
     if (!originalTempo || !originalDuration) return;
     const parsedTempo = parseInt(newTempo, 10);
     const parsedScale = parseRatio(noteTimeScale);
-    let duration = originalDuration * parsedScale;
+    const duration = originalDuration * parsedScale;
     if (!isNaN(parsedTempo) && parsedTempo > 0) {
       if (tempoChangeMode === 'speed') {
         setNewDuration(duration * (originalTempo / parsedTempo));
