@@ -19,8 +19,7 @@ export const useMidiAppController = () => {
   const project = useProject();
   const playback = usePlayback();
   const ui = useAppUI();
-  const { settings, setters, getConversionOptions, initializeDefaults, handleResetSettings } =
-    useSettings();
+  const { settings, getConversionOptions, initializeDefaults, handleResetSettings } = useSettings();
 
   // 1. Sync Project Data with Settings Context
   useEffect(() => {

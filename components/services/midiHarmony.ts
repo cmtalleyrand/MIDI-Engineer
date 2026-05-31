@@ -263,8 +263,9 @@ export function detectChordsHybrid(
   tsDenom: number,
   minDurationTicks: number,
   voiceConfigs: Record<number, string>,
-  arpeggioMode: 'count' | 'beat' | '2beat',
-  arpeggioValue: number
+  // Reserved for future arpeggio-aware detection; not yet consumed.
+  _arpeggioMode: 'count' | 'beat' | '2beat',
+  _arpeggioValue: number
 ): ChordEvent[] {
   const prepared = prepareNotesForChordDetection(notes) as RawNote[];
   const voices: Record<number, RawNote[]> = {};
