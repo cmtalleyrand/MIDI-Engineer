@@ -9,9 +9,5 @@
     "isolatedModules": false,
     "verbatimModuleSyntax": false
   },
-  "include": [
-    "types.ts",
-    "components/services/**/*.ts",
-    "tests/**/*.ts"
-  ]
+  "include": ["types.ts", "components/services/**/*.ts", "tests/**/*.ts"]
 }

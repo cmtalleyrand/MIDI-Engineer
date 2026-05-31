@@ -8,15 +8,18 @@ It is intentionally detailed and normative.
 ## 0) Product Purpose, Audience, and Priority Order
 
 ### Audience
+
 - Primary audience: **non-coders**.
 - Advanced behavior must be exposed as controllable options, with transparent debug visibility, without requiring coding knowledge.
 
 ### Priority order
+
 1. **Notation-clean ABC export quality**.
 2. **Reliable, flexible, precise advanced MIDI transformation** (including robust voice splitting and advanced quantization).
 3. **Transparency** (users can inspect what changed, where, and why).
 
 ### Output defaults (normative)
+
 - **ABC export MUST be shadow-quantized by default**.
 - **MIDI export MUST be unquantized by default unless quantization is explicitly enabled**.
 - Transform operations (transpose, invert, modal remap, crop, etc.) MUST remain available regardless of quantization choice.
@@ -28,6 +31,7 @@ It is intentionally detailed and normative.
 The processing order is strict.
 
 ### Processing Order
+
 1. **Parse & Filter**
    - Ingest raw MIDI and remove/retain events according to user settings.
 2. **Section Identification**
@@ -56,17 +60,21 @@ The processing order is strict.
 ## 2) Shadow Quantization & Grid Logic
 
 ### 2.1 Rhythm Configuration Vocabulary
+
 User rhythm vocabulary is defined by Primary + optional Secondary rhythm systems.
 
 #### Primary Rhythm
+
 - Family: `simple` (base-2), `triple` (base-3), or `quintuple` (base-5).
 - Has family-specific `MNV` (minimum note value).
 
 #### Secondary Rhythm (optional)
+
 - Family: `simple`, `triple`, or `quintuple`.
 - Has its own family-specific `MNV`.
 
 ### 2.2 Valid duration sets (normative)
+
 Durations are expressed in quarter-note units.
 
 - Base durations for family `f` are: `quarter / (f^n)` for integer `n >= 0`, with larger values available by inverse powers (`quarter * f^k` where musically valid).
@@ -78,13 +86,16 @@ Durations are expressed in quarter-note units.
   - It is `>=` the selected family MNV.
 
 ### 2.3 Quantization scope (mandatory)
+
 Shadow quantization MUST normalize both:
+
 - note onsets, and
 - note durations.
 
 Onset-only quantization is explicitly insufficient.
 
 ### 2.4 Pass 1: Local candidate analysis
+
 For each note, compute `RawOnsetTime` and `RawDuration` and evaluate candidates.
 
 1. **Candidate generation**
@@ -100,16 +111,19 @@ For each note, compute `RawOnsetTime` and `RawDuration` and evaluate candidates.
    - Else mark `Ambiguous`.
 
 Pass 1 output per note MUST include:
+
 - selected tentative candidate,
 - alternative candidates,
 - confidence class (`Certain`, `Weak_Primary`, `Ambiguous`),
 - reasoning metadata sufficient for debug tracing.
 
 ### 2.5 Pass 2: Contextual conflict resolution (required)
+
 Pass 2 is a contextual solver, not a passthrough.
 It may choose a non-local-best candidate when contextual fit is better.
 
 #### 2.5.1 Conflict classes
+
 1. **Type 1: Physical overlap (unison conflict)**
    - Condition: same pitch notes overlap after tentative quantization.
    - Resolution preference order:
@@ -125,7 +139,9 @@ It may choose a non-local-best candidate when contextual fit is better.
    - Solver should favor contextual consistency as a soft bias, not brittle hard-forcing.
 
 #### 2.5.2 Solver principle ordering (weighted, not absolute)
+
 Prioritize the following in order, while still balancing them jointly:
+
 1. Keep every note (avoid deletion).
 2. Preserve relative ordering of note events.
 3. Avoid large onset/value changes:
@@ -138,6 +154,7 @@ Prioritize the following in order, while still balancing them jointly:
 8. Prefer changing lower-confidence assignments before higher-confidence assignments.
 
 ### 2.6 Secondary rhythm contextual policy
+
 Secondary rhythm usage should generally appear as contextual patterning and rarely in complete isolation.
 This is a soft contextual preference and must not be implemented as a rigid prohibition.
 
@@ -146,12 +163,15 @@ This is a soft contextual preference and must not be implemented as a rigid proh
 ## 3) Ornament Recognition Rules
 
 ### 3.1 Detection
+
 Detect ornaments pre-quantization using strict pitch, duration, and local-context patterns.
 
 ### 3.1.1 Ornament taxonomy and detection criteria (normative)
+
 Ornament detection MUST be deterministic and parameterized.
 
 Define these local parameters per candidate window:
+
 - `Tq` = quarter-note duration in ticks.
 - `ornamentMaxSpanTicks` (default `Tq`) = max total ornament window.
 - `graceMaxDurTicks` (default `min(Tq/8, 0.5 * familyMNVticks)`) = maximum duration per grace note.
@@ -186,6 +206,7 @@ Define these local parameters per candidate window:
      - sequence span `<= 2 * Tq` unless explicitly extended by user option.
 
 Classifier outputs MUST include:
+
 - ornament class,
 - principal note reference,
 - ornament member note IDs,
@@ -196,7 +217,9 @@ Classifier outputs MUST include:
 When classification is ambiguous, retain competing hypotheses for downstream scoring rather than collapsing early.
 
 ### 3.2 Timing interpretation (mandatory hypothesis test)
+
 For each ornament-principal event, evaluate:
+
 1. **On-Beat / Take**
    - principal onset shifted by ornament duration,
    - principal duration reduced accordingly.
@@ -207,6 +230,7 @@ For each ornament-principal event, evaluate:
 Quantize both hypotheses and select the interpretation with lower principal-note ambiguity/error (onset + duration).
 
 ### 3.3 ABC rendering default
+
 When musically appropriate, ABC should default to grace-note notation for ornaments while preserving readability and consistency with resolved quantization.
 
 ---
@@ -214,20 +238,25 @@ When musically appropriate, ABC should default to grace-note notation for orname
 ## 4) Voice Separation Algorithm (Constraint-Based Tracking)
 
 ### 4.1 Objective
+
 Voice handling must satisfy both:
+
 - SATB-like readability, and
 - general polyphonic readability.
 
 ### 4.2 Core constraints
+
 - Voice crossing is a strong near-hard constraint.
 - Inputs are resolved shadow-grid notes; exact-same-grid onsets are simultaneous columns.
 
 ### 4.3 Assignment stages
+
 1. Columnization by grid onset.
 2. Anchor assignment at max-density columns (top-down by pitch).
 3. Gap filling via constrained candidate selection + path cost.
 
 ### 4.4 Cost terms and behavior requirements
+
 - `weight_pitch_leap`:
   - baseline leap penalty,
   - include a small discontinuity at octave,
@@ -244,20 +273,24 @@ Voice handling must satisfy both:
 - Include orphan-note handling concept (avoid isolated single-note voice artifacts without continuity context).
 
 ### 4.4.1 Orphan note definition and export policy (normative)
+
 `Orphan` is a valid temporary assignment state used when assigning a note to any active voice would be disproportionately costly.
 
 A note may be marked `Orphan` when one or more of the following holds:
+
 - assigning it to any voice would force an implausible chord in context,
 - assigning it would require a short-lived voice wake-up (typically < 1 measure) with poor continuity,
 - assigning it would create extreme path distortion relative to neighboring voice trajectories,
 - assigning it would force voice crossing or immediate crossing pressure that conflicts with near-hard crossing constraints.
 
 Behavior requirements:
+
 - Orphans carry **no voice path dependency** and therefore do not force future voice continuity constraints.
 - Orphans must be exportable on a dedicated separate track/lane so they are preserved rather than deleted.
 - The solver should still prefer non-orphan placement when a musically coherent, low-cost placement exists.
 
 ### 4.5 Voice labeling and lane cap
+
 - Always use compact labels (letter + number when needed).
 - Default preference is SATB-oriented naming.
 - Cap voices at 8 lanes.
@@ -277,6 +310,7 @@ Behavior requirements:
   - downloadable machine-readable trace.
 
 Minimum trace payload per note:
+
 - raw onset/duration,
 - candidate list,
 - selected candidate,

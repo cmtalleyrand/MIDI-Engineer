@@ -15,10 +15,12 @@ This file documents what the code currently does (not target intent).
 ## 2) Active processing path
 
 Primary transformation/export path is routed through:
+
 - `components/services/midiPipeline.ts`
 - helper functions from `midiTransform.ts`, `midiVoices.ts`, and related service modules.
 
 `copyAndTransformTrackEvents` currently performs (in order):
+
 1. note copy + transposition + PPQ normalization
 2. short-note filter
 3. quantization (`quantizeNotes`)
@@ -31,6 +33,7 @@ Primary transformation/export path is routed through:
 10. event copy/transform for CC/pitch bend/program change (unless filtered)
 
 Output strategy handling in `combineAndDownload`:
+
 - `separate_tracks`: transform each selected source track independently
 - `combine`: merge selected transformed notes into one track
 - `separate_voices`: combine then run voice distribution and emit multiple tracks
@@ -38,10 +41,12 @@ Output strategy handling in `combineAndDownload`:
 ## 3) Analysis path
 
 Analysis entry points are in `components/services/midiAnalysis.ts`:
+
 - `analyzeTrack`
 - `analyzeTrackSelection`
 
 Current analysis includes:
+
 - rhythm statistics
 - chord detection variants
 - key prediction
@@ -53,11 +58,13 @@ Voice assignment is currently used for analysis enrichment and display.
 ## 4) Shadow quantization code status
 
 `components/services/shadowQuantizer.ts` exists and includes:
+
 - Pass 1 candidate scoring and confidence classification
 - Pass 2 function (`resolveGridConflicts`) that currently maps each note to Pass 1 best candidate without contextual optimization
 - duration snap pass based on chosen candidate note value
 
 Important implementation note:
+
 - this module is not the sole mandatory engine for all export paths today.
 - the active export pipeline is primarily driven by `midiPipeline` + `midiTransform`.
 
