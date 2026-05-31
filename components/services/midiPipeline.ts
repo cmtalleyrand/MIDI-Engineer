@@ -1,5 +1,5 @@
 import { Midi, Track } from '@tonejs/midi';
-import { ConversionOptions, MidiEventType, PianoRollTrackData } from '../../types';
+import { ConversionOptions, MidiEventType, PianoRollTrackData, RawNote } from '../../types';
 import {
   quantizeNotes,
   performInversion,
@@ -107,13 +107,13 @@ interface DuplicateNoteIssue {
   beatSubdivision: string;
 }
 
-function dedupeNotesAndReport(
-  notes: any[],
+function dedupeNotesAndReport<T extends { midi: number; ticks: number; durationTicks: number }>(
+  notes: T[],
   trackName: string,
   timeSignature: ConversionOptions['timeSignature'],
   ppq: number
-): any[] {
-  const byIdentity = new Map<string, { note: any; duplicates: number }>();
+): T[] {
+  const byIdentity = new Map<string, { note: T; duplicates: number }>();
 
   for (const note of notes) {
     const key = `${note.midi}|${note.ticks}|${note.durationTicks}`;
@@ -125,7 +125,7 @@ function dedupeNotesAndReport(
     }
   }
 
-  const deduped: any[] = [];
+  const deduped: T[] = [];
   const issues: DuplicateNoteIssue[] = [];
   byIdentity.forEach(({ note, duplicates }) => {
     deduped.push(note);
@@ -293,23 +293,22 @@ export function copyAndTransformTrackEvents(
   }
 
   // 1. Initial Copy, Transposition & PPQ Normalization
-  let transformedNotes: any[] = sourceTrack.notes.map((note: any) => {
+  let transformedNotes: RawNote[] = sourceTrack.notes.map((note): RawNote => {
     let newMidi = note.midi + options.transposition;
     newMidi = Math.max(0, Math.min(127, newMidi));
-
-    const { name, ...rest } = note;
 
     // Normalize ticks to destination PPQ immediately
     const normalizedTicks = Math.round(note.ticks * ppqRatio);
     const normalizedDuration = Math.round(note.durationTicks * ppqRatio);
 
     return {
-      ...rest,
       midi: newMidi,
       ticks: normalizedTicks,
       durationTicks: normalizedDuration,
       velocity: note.velocity,
-    } as any;
+      // `name` is a getter on tonejs Note; copy it explicitly so it survives.
+      name: note.name,
+    };
   });
 
   // 2. Filter Short Notes (On original timeframe, effectively dest timeframe now)
@@ -381,7 +380,7 @@ export function copyAndTransformTrackEvents(
 
   const isGlobalInversion = options.inversionMode === 'global';
 
-  const transformEvent = (e: any) => {
+  const transformEvent = <E extends { ticks: number }>(e: E): E | null => {
     // Normalize
     let ticks = Math.round(e.ticks * ppqRatio);
 
@@ -402,25 +401,29 @@ export function copyAndTransformTrackEvents(
   if (!eventsToDelete.has('controlChange')) {
     Object.values(sourceTrack.controlChanges)
       .flat()
-      .forEach((cc: any) => {
+      .forEach((cc) => {
         const t = transformEvent(cc);
         if (t) destinationTrack.addCC(t);
       });
   }
   if (!eventsToDelete.has('pitchBend')) {
-    (sourceTrack.pitchBends || []).forEach((pb: any) => {
+    (sourceTrack.pitchBends || []).forEach((pb) => {
       const t = transformEvent(pb);
       if (t) destinationTrack.addPitchBend(t);
     });
   }
   if (!eventsToDelete.has('programChange')) {
-    ((sourceTrack as any).programChanges || []).forEach((pc: any) => {
+    // programChanges is present at runtime but missing from the @tonejs/midi
+    // Track typings, so reach for it through a narrow typed view.
+    const sourceWithPC = sourceTrack as unknown as {
+      programChanges?: Array<{ ticks: number; number: number }>;
+    };
+    const destWithPC = destinationTrack as unknown as {
+      addProgramChange: (programNumber: number, time: number) => void;
+    };
+    (sourceWithPC.programChanges || []).forEach((pc) => {
       const t = transformEvent(pc);
-      if (t)
-        (destinationTrack as any).addProgramChange(
-          pc.number,
-          destinationHeader.ticksToSeconds(t.ticks)
-        );
+      if (t) destWithPC.addProgramChange(pc.number, destinationHeader.ticksToSeconds(t.ticks));
     });
   }
 }
@@ -478,24 +481,31 @@ export function getTransformedTrackDataForPianoRoll(
   );
 
   const distribution = distributeToVoices(newTrack.notes, options);
-  const noteVoiceMap = new Map<any, number>();
-  const noteExplanationMap = new Map<any, any>();
-  const noteShadowDecisionMap = new Map<any, any>();
+  // Voice distribution augments the note objects in place; read those fields
+  // through the RawNote-shaped view rather than untyped `any` casts.
+  type AugmentedNote = {
+    explanation?: RawNote['explanation'];
+    shadowDecision?: RawNote['shadowDecision'];
+    isOrnament?: boolean;
+  };
+  const noteVoiceMap = new Map<object, number>();
+  const noteExplanationMap = new Map<object, RawNote['explanation']>();
+  const noteShadowDecisionMap = new Map<object, RawNote['shadowDecision']>();
 
   // Map assigned voices
   distribution.voices.forEach((voiceNotes, voiceIdx) => {
     voiceNotes.forEach((n) => {
       noteVoiceMap.set(n, voiceIdx);
-      noteExplanationMap.set(n, (n as any).explanation);
-      noteShadowDecisionMap.set(n, (n as any).shadowDecision);
+      noteExplanationMap.set(n, (n as AugmentedNote).explanation);
+      noteShadowDecisionMap.set(n, (n as AugmentedNote).shadowDecision);
     });
   });
 
   // Map orphans (index -1)
   distribution.orphans.forEach((n) => {
     noteVoiceMap.set(n, -1);
-    noteExplanationMap.set(n, (n as any).explanation);
-    noteShadowDecisionMap.set(n, (n as any).shadowDecision);
+    noteExplanationMap.set(n, (n as AugmentedNote).explanation);
+    noteShadowDecisionMap.set(n, (n as AugmentedNote).shadowDecision);
   });
 
   return {
@@ -506,7 +516,7 @@ export function getTransformedTrackDataForPianoRoll(
       velocity: n.velocity,
       name: n.name,
       voiceIndex: noteVoiceMap.get(n), // Undefined if something went wrong, -1 if orphan, >=0 if voice
-      isOrnament: (n as any).isOrnament,
+      isOrnament: (n as unknown as AugmentedNote).isOrnament,
       explanation: noteExplanationMap.get(n),
       shadowDecision: noteShadowDecisionMap.get(n),
     })),
