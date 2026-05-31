@@ -436,7 +436,9 @@ function evaluateHypothesisAtIndex(
     const isLowConfidence = confidence !== ShadowConfidence.CERTAIN;
     blipPenalty +=
       (candidateBlips - baselineBlips) *
-      (isLowConfidence ? SHADOW_PENALTIES.BLIP_LOW_CONFIDENCE : SHADOW_PENALTIES.BLIP_HIGH_CONFIDENCE);
+      (isLowConfidence
+        ? SHADOW_PENALTIES.BLIP_LOW_CONFIDENCE
+        : SHADOW_PENALTIES.BLIP_HIGH_CONFIDENCE);
     conflictTypes.push('type2_polyphony_blip');
   }
 
@@ -474,7 +476,10 @@ function evaluateHypothesisAtIndex(
   const movement = durationPenalty + onsetPenalty;
 
   const overlapAndBlip =
-    overlapPenalty + blipPenalty + contextPenalty + overlapCount * SHADOW_PENALTIES.OVERLAP_COUNT_WEIGHT;
+    overlapPenalty +
+    blipPenalty +
+    contextPenalty +
+    overlapCount * SHADOW_PENALTIES.OVERLAP_COUNT_WEIGHT;
 
   const candidateChanged =
     candidate.onset.ticks !== baseline.onset.ticks ||
