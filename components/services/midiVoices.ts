@@ -1,4 +1,5 @@
 import { RawNote, ConversionOptions, VoiceExplanation } from '../../types';
+import { ticksPerMeasure } from './timeUtils';
 
 const getMidi = (n: any | RawNote) => ('midi' in n ? n.midi : (n as any).midi);
 const getTicks = (n: any | RawNote) => ('ticks' in n ? n.ticks : (n as any).ticks);
@@ -29,16 +30,6 @@ export interface VoiceDistributionResult {
   orphans: (any | RawNote)[];
 }
 
-// Helper for combinatorial voice selection
-function getCombinations(arr: number[], k: number): number[][] {
-  if (k === 0) return [[]];
-  if (arr.length === 0) return [];
-  const [first, ...rest] = arr;
-  const withFirst = getCombinations(rest, k - 1).map((c) => [first, ...c]);
-  const withoutFirst = getCombinations(rest, k);
-  return [...withFirst, ...withoutFirst];
-}
-
 /**
  * Structural Analysis based on Density and Sustain criteria.
  */
@@ -51,7 +42,7 @@ export function distributeToVoices(
 
   const TS_NUM = options?.timeSignature?.numerator || 4;
   const TS_DEN = options?.timeSignature?.denominator || 4;
-  const TICKS_PER_MEASURE = ppq * TS_NUM * (4 / TS_DEN);
+  const TICKS_PER_MEASURE = ticksPerMeasure(ppq, { numerator: TS_NUM, denominator: TS_DEN });
   const EIGHTH_GAP = ppq / 2;
 
   // Strict Mode: Notes in a voice cannot overlap at all.

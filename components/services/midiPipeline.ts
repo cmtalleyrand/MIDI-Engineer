@@ -9,6 +9,7 @@ import {
   cropToRange,
 } from './midiTransform';
 import { distributeToVoices } from './midiVoices';
+import { ticksPerMeasure, pruneThresholdTicks } from './timeUtils';
 
 export type ExportTarget = 'midi' | 'abc';
 
@@ -128,11 +129,11 @@ function dedupeNotesAndReport(
   byIdentity.forEach(({ note, duplicates }) => {
     deduped.push(note);
     if (duplicates > 0) {
-      const ticksPerMeasure = ppq * 4 * (timeSignature.numerator / timeSignature.denominator);
-      const measure = Math.floor(note.ticks / ticksPerMeasure) + 1;
+      const measureTicks = ticksPerMeasure(ppq, timeSignature);
+      const measure = Math.floor(note.ticks / measureTicks) + 1;
       const beatTicks = ppq * (4 / timeSignature.denominator);
-      const beat = Math.floor((note.ticks % ticksPerMeasure) / beatTicks) + 1;
-      const beatPositionWithinMeasure = (note.ticks % ticksPerMeasure) / beatTicks;
+      const beat = Math.floor((note.ticks % measureTicks) / beatTicks) + 1;
+      const beatPositionWithinMeasure = (note.ticks % measureTicks) / beatTicks;
       const beatSubdivision = (beatPositionWithinMeasure - (beat - 1)).toFixed(2);
       issues.push({
         midi: note.midi,
@@ -184,10 +185,9 @@ export function copyHeaderEvents(
   let cropStartTick = 0;
   let cropEndTick = Infinity;
   if (cropEnabled) {
-    const ticksPerMeasure =
-      destHeader.ppq * 4 * (options.timeSignature.numerator / options.timeSignature.denominator);
-    cropStartTick = (options.exportRange.startMeasure - 1) * ticksPerMeasure;
-    cropEndTick = options.exportRange.endMeasure * ticksPerMeasure;
+    const measureTicks = ticksPerMeasure(destHeader.ppq, options.timeSignature);
+    cropStartTick = (options.exportRange.startMeasure - 1) * measureTicks;
+    cropEndTick = options.exportRange.endMeasure * measureTicks;
   }
 
   // --- Tempo events ---
@@ -362,10 +362,9 @@ export function copyAndTransformTrackEvents(
   let cropEndTick = Infinity;
 
   if (cropEnabled) {
-    const ticksPerMeasure =
-      destPPQ * 4 * (options.timeSignature.numerator / options.timeSignature.denominator);
-    cropStartTick = (options.exportRange.startMeasure - 1) * ticksPerMeasure;
-    cropEndTick = options.exportRange.endMeasure * ticksPerMeasure;
+    const measureTicks = ticksPerMeasure(destPPQ, options.timeSignature);
+    cropStartTick = (options.exportRange.startMeasure - 1) * measureTicks;
+    cropEndTick = options.exportRange.endMeasure * measureTicks;
 
     transformedNotes = cropToRange(transformedNotes, options, destPPQ);
   }
@@ -551,13 +550,11 @@ export async function combineAndDownload(
         );
 
         if (resolvedOptions.pruneOverlaps) {
-          const multipliers: number[] = [
-            0, 0.03125, 0.0416, 0.0625, 0.0833, 0.125, 0.1666, 0.25, 0.3333, 0.5, 1.0,
-          ];
-          const pruneThresholdTicks = Math.round(
-            newMidi.header.ppq * multipliers[resolvedOptions.pruneThresholdIndex]
+          const thresholdTicks = pruneThresholdTicks(
+            newMidi.header.ppq,
+            resolvedOptions.pruneThresholdIndex
           );
-          newTrack.notes = pruneOverlaps(newTrack.notes, pruneThresholdTicks);
+          newTrack.notes = pruneOverlaps(newTrack.notes, thresholdTicks);
         }
       }
     });
@@ -586,13 +583,11 @@ export async function combineAndDownload(
     });
 
     if (resolvedOptions.pruneOverlaps) {
-      const multipliers: number[] = [
-        0, 0.03125, 0.0416, 0.0625, 0.0833, 0.125, 0.1666, 0.25, 0.3333, 0.5, 1.0,
-      ];
-      const pruneThresholdTicks = Math.round(
-        newMidi.header.ppq * multipliers[resolvedOptions.pruneThresholdIndex]
+      const thresholdTicks = pruneThresholdTicks(
+        newMidi.header.ppq,
+        resolvedOptions.pruneThresholdIndex
       );
-      combinedTrack.notes = pruneOverlaps(combinedTrack.notes, pruneThresholdTicks);
+      combinedTrack.notes = pruneOverlaps(combinedTrack.notes, thresholdTicks);
     }
 
     // Strategy 3: Separate Voices
