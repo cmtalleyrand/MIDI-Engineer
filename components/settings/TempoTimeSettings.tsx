@@ -27,7 +27,10 @@ export default function TempoTimeSettings() {
     setNewTimeSignature({ ...newTimeSignature, [part]: val });
   };
 
-  const handleRangeChange = (field: keyof ExportRangeOptions, val: any) => {
+  const handleRangeChange = (
+    field: keyof ExportRangeOptions,
+    val: ExportRangeOptions[keyof ExportRangeOptions]
+  ) => {
     setExportRange({ ...exportRange, [field]: val });
   };
 

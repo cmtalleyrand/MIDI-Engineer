@@ -158,18 +158,20 @@ export interface VoiceExplanation {
   reason?: string;
 }
 
+export interface PianoRollNote {
+  midi: number;
+  ticks: number;
+  durationTicks: number;
+  velocity: number;
+  name: string;
+  voiceIndex?: number;
+  isOrnament?: boolean;
+  explanation?: VoiceExplanation; // Debug info for voice allocation
+  shadowDecision?: RawNote['shadowDecision'];
+}
+
 export interface PianoRollTrackData {
-  notes: {
-    midi: number;
-    ticks: number;
-    durationTicks: number;
-    velocity: number;
-    name: string;
-    voiceIndex?: number;
-    isOrnament?: boolean;
-    explanation?: VoiceExplanation; // Debug info for voice allocation
-    shadowDecision?: RawNote['shadowDecision'];
-  }[];
+  notes: PianoRollNote[];
   name: string;
   ppq: number;
   timeSignature: {
