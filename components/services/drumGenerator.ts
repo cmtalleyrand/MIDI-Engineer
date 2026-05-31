@@ -1,5 +1,6 @@
 import { Midi } from '@tonejs/midi';
 import { predictKey } from './analysis/keyPrediction';
+import { ticksPerMeasure as measureTicks } from './timeUtils';
 
 // --- GM Drum Map (Channel 9) ---
 const GM = {
@@ -75,7 +76,7 @@ export function detectBeatProfile(
   ppq: number
 ): BeatWeightProfile {
   const subdivisions = 16;
-  const ticksPerMeasure = ppq * 4 * (timeSignature.numerator / timeSignature.denominator);
+  const ticksPerMeasure = measureTicks(ppq, timeSignature);
   const ticksPerSub = ticksPerMeasure / subdivisions;
 
   const weights = new Array(subdivisions).fill(0);
@@ -152,7 +153,7 @@ function generateFourOnFloor(
 ): DrumNote[] {
   const notes: DrumNote[] = [];
   const ticksPerBeat = ppq;
-  const ticksPerMeasure = ppq * 4 * (ts.numerator / ts.denominator);
+  const ticksPerMeasure = measureTicks(ppq, ts);
   const beats = ts.numerator;
   const dur = Math.round(ppq / 4);
   const numMeasures = Math.ceil(totalTicks / ticksPerMeasure);
@@ -262,7 +263,7 @@ function generateOrchestraTimpani(
 ): DrumNote[] {
   const notes: DrumNote[] = [];
   const ticksPerBeat = ppq;
-  const ticksPerMeasure = ppq * 4 * (ts.numerator / ts.denominator);
+  const ticksPerMeasure = measureTicks(ppq, ts);
   const beats = ts.numerator;
   const numMeasures = Math.ceil(totalTicks / ticksPerMeasure);
 
@@ -353,7 +354,7 @@ function generateBrushesRide(
 ): DrumNote[] {
   const notes: DrumNote[] = [];
   const ticksPerBeat = ppq;
-  const ticksPerMeasure = ppq * 4 * (ts.numerator / ts.denominator);
+  const ticksPerMeasure = measureTicks(ppq, ts);
   const beats = ts.numerator;
   const dur = Math.round(ppq / 4);
   const numMeasures = Math.ceil(totalTicks / ticksPerMeasure);

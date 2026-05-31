@@ -7,6 +7,7 @@ import {
 } from '../../types';
 import { detectAndTagOrnaments, NOTE_NAMES } from './midiCore';
 import { applyShadowQuantization } from './shadowQuantizer';
+import { ticksPerMeasure, pruneThresholdTicks } from './timeUtils';
 
 export const getQuantizationTickValue = (quantizationValue: string, ppq: number): number => {
   if (quantizationValue === 'off') return 0;
@@ -87,20 +88,16 @@ export function quantizeNotes(notes: any[], options: ConversionOptions, ppq: num
   if (options.shiftToMeasure && notesToProcess.length > 0) {
     notesToProcess.sort((a, b) => a.ticks - b.ticks);
     const firstNoteTick = notesToProcess[0].ticks;
-    const ticksPerMeasure =
-      ppq * options.timeSignature.numerator * (4 / options.timeSignature.denominator);
-    const shiftAmount = -(firstNoteTick % ticksPerMeasure);
+    const measureTicks = ticksPerMeasure(ppq, options.timeSignature);
+    const shiftAmount = -(firstNoteTick % measureTicks);
     if (Math.abs(shiftAmount) > 0) {
       notesToProcess = notesToProcess.map((note) => ({ ...note, ticks: note.ticks + shiftAmount }));
     }
   }
 
   if (options.pruneOverlaps) {
-    const multipliers: number[] = [
-      0, 0.03125, 0.0416, 0.0625, 0.0833, 0.125, 0.1666, 0.25, 0.3333, 0.5, 1.0,
-    ];
-    const pruneThresholdTicks = Math.round(ppq * multipliers[options.pruneThresholdIndex]);
-    notesToProcess = pruneOverlaps(notesToProcess, pruneThresholdTicks);
+    const thresholdTicks = pruneThresholdTicks(ppq, options.pruneThresholdIndex);
+    notesToProcess = pruneOverlaps(notesToProcess, thresholdTicks);
   }
 
   // NEW: Shadow Grid Logic
@@ -163,7 +160,7 @@ export function performInversion(
     return notes.map((n) => ({ ...n, ticks: totalDurationTicks - (n.ticks + n.durationTicks) }));
   }
   let intervalTicks = 0;
-  const ticksPerMeasure = ppq * 4 * (timeSignature.numerator / timeSignature.denominator);
+  const measureTicks = ticksPerMeasure(ppq, timeSignature);
   switch (mode) {
     case '1beat':
       intervalTicks = ppq;
@@ -172,16 +169,16 @@ export function performInversion(
       intervalTicks = ppq * 2;
       break;
     case 'measure':
-      intervalTicks = ticksPerMeasure;
+      intervalTicks = measureTicks;
       break;
     case '2measures':
-      intervalTicks = ticksPerMeasure * 2;
+      intervalTicks = measureTicks * 2;
       break;
     case '4measures':
-      intervalTicks = ticksPerMeasure * 4;
+      intervalTicks = measureTicks * 4;
       break;
     case '8measures':
-      intervalTicks = ticksPerMeasure * 8;
+      intervalTicks = measureTicks * 8;
       break;
     default:
       return notes;
@@ -203,9 +200,9 @@ function getRangeTicks(
   ppq: number,
   timeSignature: { numerator: number; denominator: number }
 ) {
-  const ticksPerMeasure = ppq * 4 * (timeSignature.numerator / timeSignature.denominator);
-  const startTick = (startMeasure - 1) * ticksPerMeasure;
-  const endTick = endMeasure * ticksPerMeasure;
+  const measureTicks = ticksPerMeasure(ppq, timeSignature);
+  const startTick = (startMeasure - 1) * measureTicks;
+  const endTick = endMeasure * measureTicks;
   return { startTick, endTick };
 }
 
@@ -324,11 +321,10 @@ export function cropToRange(notes: any[], options: ConversionOptions, ppq: numbe
   if (!options.exportRange.enabled) return notes;
 
   const { startMeasure, endMeasure } = options.exportRange;
-  const ticksPerMeasure =
-    ppq * 4 * (options.timeSignature.numerator / options.timeSignature.denominator);
+  const measureTicks = ticksPerMeasure(ppq, options.timeSignature);
 
-  const startTick = (startMeasure - 1) * ticksPerMeasure;
-  const endTick = endMeasure * ticksPerMeasure;
+  const startTick = (startMeasure - 1) * measureTicks;
+  const endTick = endMeasure * measureTicks;
 
   // Filter notes
   let cropped = notes.filter((n) => {
