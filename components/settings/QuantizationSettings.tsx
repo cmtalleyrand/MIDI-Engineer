@@ -28,7 +28,7 @@ export default function QuantizationSettings({ quantizationWarning }: Quantizati
 
   const [showWarningDetails, setShowWarningDetails] = useState(false);
 
-  const handlePrimaryChange = (field: keyof RhythmRule, value: any) => {
+  const handlePrimaryChange = (field: keyof RhythmRule, value: RhythmRule[keyof RhythmRule]) => {
     if (field === 'enabled' && value === false) {
       // If disabling primary, we basically turn off quantization
       setPrimaryRhythm({ ...primaryRhythm, enabled: false });

@@ -57,7 +57,10 @@ export default function TransformSettings({ inversionStats }: TransformSettingsP
     setRemoveShortNotesThresholdIndex,
   } = setters;
 
-  const handleMelodicChange = (field: keyof MelodicInversionOptions, val: any) => {
+  const handleMelodicChange = (
+    field: keyof MelodicInversionOptions,
+    val: MelodicInversionOptions[keyof MelodicInversionOptions]
+  ) => {
     setMelodicInversion({ ...melodicInversion, [field]: val });
   };
 

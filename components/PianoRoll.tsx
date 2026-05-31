@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
-import { PianoRollTrackData, VoiceAllocationMath } from '../types';
+import { PianoRollTrackData, PianoRollNote, VoiceAllocationMath } from '../types';
 import { getVoiceLabel } from './services/midiVoices';
 import { canSelectPianoRollNote, sortNotesForPianoRollRendering } from './services/pianoRollUtils';
 import { ticksPerMeasure as measureTicks } from './services/timeUtils';
@@ -89,7 +89,7 @@ const PianoRoll: React.FC<PianoRollProps> = ({ trackData }) => {
   const [zoom, setZoom] = useState(1.0);
   const [showVoices, setShowVoices] = useState(false);
   const [showQuantizerRationale, setShowQuantizerRationale] = useState(false);
-  const [selectedNote, setSelectedNote] = useState<any | null>(null);
+  const [selectedNote, setSelectedNote] = useState<PianoRollNote | null>(null);
   const canSelectNoteForDetails = canSelectPianoRollNote(showVoices, showQuantizerRationale);
 
   // Calculate max voice count for labeling

@@ -74,7 +74,7 @@ export function getDefaultOrnamentDetectionParams(
   };
 }
 
-function asAnnotated(notes: any[]): OrnamentAnnotatedNote[] {
+function asAnnotated(notes: OrnamentAnnotatedNote[]): OrnamentAnnotatedNote[] {
   return [...notes]
     .sort((a, b) => a.ticks - b.ticks || a.midi - b.midi)
     .map((n, i) => {

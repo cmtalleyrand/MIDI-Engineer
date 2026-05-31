@@ -68,7 +68,7 @@ export function renderMidiToAbc(
   midi.tracks.forEach((track, trackIndex) => {
     if (track.notes.length === 0) return;
 
-    let voices: any[][] = [];
+    let voices: Array<Array<{ midi: number; ticks: number; durationTicks: number }>> = [];
     if (options.outputStrategy === 'separate_voices') {
       const distribution = distributeToVoices(track.notes, options);
       voices = distribution.voices;

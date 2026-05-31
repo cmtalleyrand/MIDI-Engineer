@@ -2,6 +2,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { AppState, PianoRollTrackData, TrackAnalysisData } from '../types';
 import type { TrackAbcPreview } from '../components/services/midiAbc';
 
+// The non-standard PWA install event (not in the DOM lib typings).
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
+}
+
 export const useAppUI = () => {
   const [uiState, setUiState] = useState<AppState>(AppState.IDLE);
   const [errorMessage, setErrorMessage] = useState<string>('');
@@ -17,7 +23,7 @@ export const useAppUI = () => {
   const [isDrumGeneratorVisible, setIsDrumGeneratorVisible] = useState<boolean>(false);
 
   // PWA
-  const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [showInstallHelp, setShowInstallHelp] = useState(false);
 
@@ -26,10 +32,10 @@ export const useAppUI = () => {
     // because preview iframes often incorrectly report standalone mode, hiding the button.
     // We rely on the user's install action or explicit browser events.
 
-    const handler = (e: any) => {
+    const handler = (e: Event) => {
       // Prevent Chrome from automatically showing the prompt
       e.preventDefault();
-      setInstallPrompt(e);
+      setInstallPrompt(e as BeforeInstallPromptEvent);
       // If the event fires, we are definitely not installed.
       setIsInstalled(false);
     };
@@ -43,7 +49,7 @@ export const useAppUI = () => {
   const handleInstallClick = useCallback(() => {
     if (installPrompt) {
       installPrompt.prompt();
-      installPrompt.userChoice.then((choiceResult: any) => {
+      installPrompt.userChoice.then((choiceResult) => {
         if (choiceResult.outcome === 'accepted') {
           setInstallPrompt(null);
           // Optionally set isInstalled to true here if we want to hide it immediately after acceptance
