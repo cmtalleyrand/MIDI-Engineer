@@ -1,6 +1,5 @@
 import { RawNote, ConversionOptions, VoiceExplanation } from '../../types';
 import { ticksPerMeasure } from './timeUtils';
-import { columnizeByOnset, maxColumnDensity, VoiceNoteLike } from './voiceColumns';
 import {
   pitchLeapCost,
   registerCenterCost,
@@ -9,9 +8,14 @@ import {
   VOICE_COST,
 } from './voiceCosts';
 
+interface VoiceNoteLike {
+  midi: number;
+  ticks: number;
+  durationTicks: number;
+}
+
 const getMidi = (n: VoiceNoteLike) => n.midi;
 const getTicks = (n: VoiceNoteLike) => n.ticks;
-const getDuration = (n: VoiceNoteLike) => n.durationTicks;
 const getEnd = (n: VoiceNoteLike) => n.ticks + n.durationTicks;
 
 export function getVoiceLabel(index: number, total: number): string {
@@ -246,8 +250,7 @@ export function distributeToVoices(
 
       // Chord fragmentation: adding to a voice that already sounds at this onset
       // (i.e. a simultaneous note) fragments a chord across voices.
-      const isChordAddition =
-        !strictMonophony && state.notes.some((e) => getTicks(e) === nStart);
+      const isChordAddition = !strictMonophony && state.notes.some((e) => getTicks(e) === nStart);
       if (isChordAddition) {
         cost += VOICE_COST.CHORD_FRAGMENTATION;
         details.push(`chord ${VOICE_COST.CHORD_FRAGMENTATION}`);

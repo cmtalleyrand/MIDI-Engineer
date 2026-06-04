@@ -59,9 +59,30 @@ Voice assignment is currently used for analysis enrichment and display.
 
 `components/services/shadowQuantizer.ts` exists and includes:
 
-- Pass 1 candidate scoring and confidence classification
-- Pass 2 function (`resolveGridConflicts`) that currently maps each note to Pass 1 best candidate without contextual optimization
-- duration snap pass based on chosen candidate note value
+- Pass 1 (`analyzeShadowCertainty`): per-note candidate scoring against the
+  primary and secondary grids, with confidence classification (Certain /
+  Weak_Primary / Ambiguous) using the absolute-tolerance and 50%-rule gates.
+- Pass 2 (`resolveGridConflicts` + `evaluateHypothesisAtIndex`): a contextual
+  conflict solver, **not** a passthrough. For each note it evaluates the
+  candidate set against a weighted objective implementing the §2.5 conflict
+  classes — Type 1 unison overlap (accommodation-first shortening, never below
+  family MNV), Type 2 short polyphony blips, Type 3 contextual rhythm
+  inconsistency — plus the §2.5.2 principle ordering (no deletion, preserve
+  ordering, bounded onset/duration movement, confidence-aware edit cost) and
+  picks the minimum-cost hypothesis. Each note records a `shadowDecision` trace
+  (confidence, selected family/value, objective breakdown, conflict types,
+  accommodation, alternatives).
+- duration snap pass based on chosen candidate note value.
+
+Verified by `tests/shadow-pass2.test.ts` (note conservation, trace payload,
+Type-1 accommodation/MNV floor, onset snapping, disabled-rhythm no-op) and the
+fixture suite (`overlapConflict`, `densityBlip`, `contextualTriplet`,
+`tripletOutlier`).
+
+Remaining gap: Pass 1 currently generates a single onset+duration candidate per
+family at the family MNV, so Pass 2 chooses between the primary-MNV and
+secondary-MNV grids only. Coarser in-family note values (≥ MNV, §2.2/§2.4) are
+not yet offered as distinct candidates.
 
 Important implementation note:
 
@@ -88,5 +109,8 @@ Important implementation note:
 
 ## 5) Known gap vs target architecture
 
-The target spec expects a fully contextual Pass 2 conflict resolver (density blips, overlap negotiation, contextual rhythm consistency, etc.).
-Current implementation does not yet realize this full behavior.
+The §2.5 contextual Pass 2 conflict resolver (density blips, overlap
+negotiation, contextual rhythm consistency, weighted principle ordering) **is
+now implemented** (see §4). The remaining quantization gap is candidate
+breadth: Pass 1 only offers each family's MNV grid, not coarser in-family note
+values, so Pass 2's reselection space is limited to primary-vs-secondary MNV.

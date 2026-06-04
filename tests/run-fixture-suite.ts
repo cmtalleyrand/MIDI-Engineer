@@ -6,6 +6,7 @@ import { runPianoRollUtilsTests } from './piano-roll-utils.test';
 import { runPianoRollPipelineTests } from './piano-roll-pipeline.test';
 import { runMidiAbcPreviewTests } from './midi-abc-preview.test';
 import { runVoiceSolverTests } from './voice-solver.test';
+import { runShadowPass2Tests } from './shadow-pass2.test';
 
 const TIMEOUT_MS = 30_000;
 const timer = setTimeout(() => {
@@ -59,6 +60,10 @@ run('ABC preview generation', () => {
 
 run('Voice solver', () => {
   runVoiceSolverTests();
+});
+
+run('Shadow quantization Pass 2', () => {
+  runShadowPass2Tests();
 });
 
 clearTimeout(timer);

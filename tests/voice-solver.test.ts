@@ -99,7 +99,11 @@ export function runVoiceSolverTests(): void {
   // Monophonic line with a short isolated outlier far away → orphan candidate
   // under strict monophony with a single voice.
   {
-    const input = [note(60, 0, MEASURE), note(64, MEASURE, MEASURE), note(67, MEASURE * 4, PPQ / 4)];
+    const input = [
+      note(60, 0, MEASURE),
+      note(64, MEASURE, MEASURE),
+      note(67, MEASURE * 4, PPQ / 4),
+    ];
     const r = distributeToVoices(
       input,
       opts({ voiceSeparationDisableChords: true, voiceSeparationMaxVoices: 1 }),
@@ -132,11 +136,7 @@ export function runVoiceSolverTests(): void {
   // Orphans never overlap-collapse: every assigned voice is internally
   // non-overlapping when strict monophony is on.
   {
-    const input = [
-      note(60, 0, MEASURE),
-      note(64, 0, MEASURE),
-      note(67, 0, MEASURE),
-    ];
+    const input = [note(60, 0, MEASURE), note(64, 0, MEASURE), note(67, 0, MEASURE)];
     const r = distributeToVoices(
       input,
       opts({ voiceSeparationDisableChords: true, voiceSeparationMaxVoices: 1 }),
