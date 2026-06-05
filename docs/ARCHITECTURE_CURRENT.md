@@ -57,11 +57,17 @@ Voice assignment is currently used for analysis enrichment and display.
 
 ## 4) Shadow quantization code status
 
-`components/services/shadowQuantizer.ts` exists and includes:
+`components/services/shadowQuantizer.ts` runs two passes:
 
-- Pass 1 candidate scoring and confidence classification
-- Pass 2 function (`resolveGridConflicts`) that currently maps each note to Pass 1 best candidate without contextual optimization
-- duration snap pass based on chosen candidate note value
+- Pass 1 (`analyzeShadowCertainty`): scores each note against the primary and
+  secondary grids and assigns a confidence class (Certain / Weak_Primary /
+  Ambiguous).
+- Pass 2 (`resolveGridConflicts`): for each note it evaluates the candidate set
+  (best + alternatives) via `evaluateHypothesisAtIndex`, scoring an objective
+  that combines conflict penalties (unison overlap, short polyphony blips, local
+  rhythm-family mismatch) with movement, ordering and confidence terms, then
+  picks the lowest-cost candidate. Each note records a `shadowDecision` trace
+  (selected family/value, conflict types, objective breakdown, alternatives).
 
 Important implementation note:
 
@@ -88,5 +94,6 @@ Important implementation note:
 
 ## 5) Known gap vs target architecture
 
-The target spec expects a fully contextual Pass 2 conflict resolver (density blips, overlap negotiation, contextual rhythm consistency, etc.).
-Current implementation does not yet realize this full behavior.
+Pass 1 generates a single onset/duration candidate per family at that family's
+minimum note value, so Pass 2 reselects only between the primary and secondary
+MNV grids; coarser in-family note values are not offered as separate candidates.
