@@ -7,7 +7,8 @@ export type ErrorDetails = {
   url: string;
 };
 
-const createErrorId = (): string => `ERR-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+const createErrorId = (): string =>
+  `ERR-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 
 const stringifyUnknown = (value: unknown): string => {
   if (value instanceof Error) {
@@ -65,14 +66,12 @@ export const formatDiagnostics = (details: ErrorDetails): string => {
   const sourceLine = details.source ? `Source: ${details.source}` : 'Source: unknown';
   const stackLine = details.stack ? `\nStack:\n${details.stack}` : '';
 
-  return (
-    [
-      'Application failure diagnostics',
-      `Error ID: ${details.id}`,
-      `Timestamp: ${details.timestamp}`,
-      `URL: ${details.url}`,
-      sourceLine,
-      `Message: ${details.message}`,
-    ].join('\n') + stackLine
-  );
+  return [
+    'Application failure diagnostics',
+    `Error ID: ${details.id}`,
+    `Timestamp: ${details.timestamp}`,
+    `URL: ${details.url}`,
+    sourceLine,
+    `Message: ${details.message}`,
+  ].join('\n') + stackLine;
 };

@@ -1,255 +1,199 @@
+
 import { Midi } from '@tonejs/midi';
 import { ConversionOptions, MidiEventType } from '../../types';
 import { getQuantizationTickValue } from './midiTransform';
-import {
-  copyAndTransformTrackEvents,
-  copyHeaderEvents,
-  logExportResolution,
-  resolveExportOptions,
-} from './midiPipeline';
+import { copyAndTransformTrackEvents, copyHeaderEvents, logExportResolution, resolveExportOptions } from './midiPipeline';
 import { distributeToVoices, getVoiceLabel } from './midiVoices';
 import { analyzeScale } from './musicTheory';
-import {
-  determineBestLUnit,
-  formatFraction,
-  flattenPolyphonyToChords,
-  segmentEventsByMeasure,
-  getAbcPitch,
+import { 
+    determineBestLUnit, 
+    formatFraction, 
+    flattenPolyphonyToChords, 
+    segmentEventsByMeasure, 
+    getAbcPitch 
 } from './abcUtils';
 
-export function renderMidiToAbc(
-  midi: Midi,
-  fileName: string,
-  options: ConversionOptions,
-  forcedGridTick: number = 0
-): string {
-  const ts = midi.header.timeSignatures[0]?.timeSignature || [4, 4];
-  const ppq = midi.header.ppq;
-  let quantGrid = forcedGridTick;
-  if (quantGrid <= 0) {
-    const all = midi.tracks.flatMap((t) => t.notes);
-    let tErr = 0,
-      sErr = 0;
-    const tT = ppq / 3,
-      sT = ppq / 4;
-    all.forEach((n) => {
-      tErr += Math.min(n.ticks % tT, tT - (n.ticks % tT));
-      sErr += Math.min(n.ticks % sT, sT - (n.ticks % sT));
-    });
-    quantGrid = tErr < sErr ? Math.round(ppq / 12) : Math.round(ppq / 4);
-    if (quantGrid === 0) quantGrid = 1;
-  }
-  midi.tracks.forEach((t) =>
-    t.notes.forEach((n) => {
-      n.ticks = Math.round(n.ticks / quantGrid) * quantGrid;
-      n.durationTicks = Math.max(quantGrid, Math.round(n.durationTicks / quantGrid) * quantGrid);
-    })
-  );
-  const allNotes = midi.tracks.flatMap((t) => t.notes);
-  const maxSongTick = allNotes.reduce((max, n) => Math.max(max, n.ticks + n.durationTicks), 0);
-  const lUnit = determineBestLUnit(allNotes, ppq);
-
-  // --- KEY SIGNATURE LOGIC ---
-  const { scaleMap, keyString, preferFlats } = analyzeScale(
-    options.modalConversion.root,
-    options.modalConversion.modeName,
-    options.keySignatureSpelling,
-    options.abcKeyExport
-  );
-
-  let abc = `X:1\nT:${fileName.replace(/\.abc$/i, '')}\nM:${ts[0]}/${ts[1]}\nL:${lUnit.str}\nQ:1/4=${Math.round(midi.header.tempos[0]?.bpm || 120)}\n`;
-  if (options.modalConversion.root === 0 && options.modalConversion.modeName === 'Major') {
-    abc += `% NOTE: Key signature is set to C Major by default.\n`;
-  }
-  abc += `${keyString}\n`;
-  const ticksPerM = Math.round(ppq * 4 * (ts[0] / ts[1]));
-  const totalMeasures = Math.ceil(maxSongTick / ticksPerM);
-
-  midi.tracks.forEach((track, trackIndex) => {
-    if (track.notes.length === 0) return;
-
-    let voices: Array<Array<{ midi: number; ticks: number; durationTicks: number }>> = [];
-    if (options.outputStrategy === 'separate_voices') {
-      const distribution = distributeToVoices(track.notes, options);
-      voices = distribution.voices;
-      if (distribution.orphans.length > 0) {
-        // Treat orphans as a final voice for export so data is not dropped
-        voices.push(distribution.orphans);
-      }
-    } else {
-      voices = [[...track.notes]];
+export function renderMidiToAbc(midi: Midi, fileName: string, options: ConversionOptions, forcedGridTick: number = 0): string {
+    const ts = midi.header.timeSignatures[0]?.timeSignature || [4, 4];
+    const ppq = midi.header.ppq;
+    let quantGrid = forcedGridTick;
+    if (quantGrid <= 0) {
+        const all = midi.tracks.flatMap(t => t.notes);
+        let tErr = 0, sErr = 0;
+        const tT = ppq/3, sT = ppq/4;
+        all.forEach(n => { tErr += Math.min(n.ticks % tT, tT - (n.ticks % tT)); sErr += Math.min(n.ticks % sT, sT - (n.ticks % sT)); });
+        quantGrid = tErr < sErr ? Math.round(ppq/12) : Math.round(ppq/4);
+        if (quantGrid === 0) quantGrid = 1;
     }
+    midi.tracks.forEach(t => t.notes.forEach(n => { n.ticks = Math.round(n.ticks/quantGrid)*quantGrid; n.durationTicks = Math.max(quantGrid, Math.round(n.durationTicks/quantGrid)*quantGrid); }));
+    const allNotes = midi.tracks.flatMap(t => t.notes);
+    const maxSongTick = allNotes.reduce((max, n) => Math.max(max, n.ticks + n.durationTicks), 0);
+    const lUnit = determineBestLUnit(allNotes, ppq);
+    
+    // --- KEY SIGNATURE LOGIC ---
+    const { scaleMap, keyString, preferFlats } = analyzeScale(options.modalConversion.root, options.modalConversion.modeName, options.keySignatureSpelling, options.abcKeyExport);
 
-    voices.forEach((vNotes, vIdx) => {
-      const voiceId =
-        options.outputStrategy === 'separate_voices'
-          ? `${trackIndex + 1}_${vIdx + 1}`
-          : `${trackIndex + 1}`;
-
-      // Handle naming for Orphans (which will be the last index if added)
-      // But we can rely on getVoiceLabel to return 'Orphan' if index is -1,
-      // but here we are iterating an array so vIdx is 0..N.
-      // If vIdx == voices.length - 1 AND distribution had orphans, it might be the orphans track.
-      // Better to rely on checking if this note set matches the orphans, but for simple export we just label sequentially or detect if it was orphans.
-      // Actually, we can check if it exceeds the expected polyphony, but let's just label it generic Voice N or rely on user knowing.
-      // Better: If we added orphans, it's the last one.
-
-      const voiceName =
-        options.outputStrategy === 'separate_voices'
-          ? getVoiceLabel(vIdx, voices.length)
-          : track.name;
-
-      // Heuristic for naming Orphan track in ABC if it was added
-      // (Since distributeToVoices returns N voices, if we have N+1, the last is orphans)
-      // Ideally we'd pass the orphan flag explicitly, but for now this is "not dropping info".
-
-      abc += `V:${voiceId} name="${voiceName}"\n`;
-
-      // FLATTEN POLYPHONY
-      const flattenedEvents = flattenPolyphonyToChords(vNotes);
-      const measures = segmentEventsByMeasure(flattenedEvents, ticksPerM);
-
-      let abcBody = '';
-      let lineMeasureCount = 0;
-      for (let m = 0; m < totalMeasures; m++) {
-        if (lineMeasureCount === 0) abcBody += `% Measure ${m + 1}\n`;
-
-        const events = measures.get(m) || [];
-
-        if (events.length === 0) {
-          abcBody += `z${formatFraction(ticksPerM, lUnit.ticks)} | `;
-        } else {
-          let mStr = '';
-          events.forEach((e) => {
-            const durStr = formatFraction(e.durationTicks, lUnit.ticks);
-            if (e.type === 'rest') {
-              mStr += `z${durStr} `;
-            } else if (e.notes) {
-              const notesStr = e.notes
-                .map((n) => getAbcPitch(n.midi, scaleMap, preferFlats))
-                .join('');
-              if (e.notes.length > 1) {
-                const chordTie = e.notes.some((n) => n.tied) ? '-' : '';
-                mStr += `[${notesStr}]${durStr}${chordTie} `;
-              } else {
-                const tieSuffix = e.notes[0].tied ? '-' : '';
-                mStr += `${notesStr}${durStr}${tieSuffix} `;
-              }
+    let abc = `X:1\nT:${fileName.replace(/\.abc$/i, '')}\nM:${ts[0]}/${ts[1]}\nL:${lUnit.str}\nQ:1/4=${Math.round(midi.header.tempos[0]?.bpm || 120)}\n`;
+    if (options.modalConversion.root === 0 && options.modalConversion.modeName === 'Major') {
+        abc += `% NOTE: Key signature is set to C Major by default.\n`;
+    }
+    abc += `${keyString}\n`;
+    const ticksPerM = Math.round(ppq * 4 * (ts[0] / ts[1]));
+    const totalMeasures = Math.ceil(maxSongTick / ticksPerM);
+    
+    midi.tracks.forEach((track, trackIndex) => {
+        if (track.notes.length === 0) return;
+        
+        let voices: any[][] = [];
+        if (options.outputStrategy === 'separate_voices') {
+            const distribution = distributeToVoices(track.notes, options);
+            voices = distribution.voices;
+            if (distribution.orphans.length > 0) {
+                // Treat orphans as a final voice for export so data is not dropped
+                voices.push(distribution.orphans);
             }
-          });
-          abcBody += mStr.trim() + ' | ';
+        } else {
+            voices = [[...track.notes]];
         }
-        if (++lineMeasureCount >= 4) {
-          abcBody += '\n';
-          lineMeasureCount = 0;
-        }
-      }
-      abc += abcBody.trim() + ' |]\n\n';
+
+        voices.forEach((vNotes, vIdx) => {
+            const voiceId = options.outputStrategy === 'separate_voices' ? `${trackIndex + 1}_${vIdx + 1}` : `${trackIndex + 1}`;
+            
+            // Handle naming for Orphans (which will be the last index if added)
+            // But we can rely on getVoiceLabel to return 'Orphan' if index is -1, 
+            // but here we are iterating an array so vIdx is 0..N.
+            // If vIdx == voices.length - 1 AND distribution had orphans, it might be the orphans track.
+            // Better to rely on checking if this note set matches the orphans, but for simple export we just label sequentially or detect if it was orphans.
+            // Actually, we can check if it exceeds the expected polyphony, but let's just label it generic Voice N or rely on user knowing.
+            // Better: If we added orphans, it's the last one.
+            
+            let voiceName = options.outputStrategy === 'separate_voices' ? getVoiceLabel(vIdx, voices.length) : track.name;
+            
+            // Heuristic for naming Orphan track in ABC if it was added
+            // (Since distributeToVoices returns N voices, if we have N+1, the last is orphans)
+            // Ideally we'd pass the orphan flag explicitly, but for now this is "not dropping info".
+            
+            abc += `V:${voiceId} name="${voiceName}"\n`;
+            
+            // FLATTEN POLYPHONY
+            const flattenedEvents = flattenPolyphonyToChords(vNotes);
+            const measures = segmentEventsByMeasure(flattenedEvents, ticksPerM);
+            
+            let abcBody = '';
+            let lineMeasureCount = 0;
+            for (let m = 0; m < totalMeasures; m++) {
+                if (lineMeasureCount === 0) abcBody += `% Measure ${m + 1}\n`;
+                
+                const events = measures.get(m) || [];
+                
+                if (events.length === 0) {
+                    abcBody += `z${formatFraction(ticksPerM, lUnit.ticks)} | `;
+                } else {
+                    let mStr = '';
+                    events.forEach(e => {
+                        const durStr = formatFraction(e.durationTicks, lUnit.ticks);
+                        if (e.type === 'rest') {
+                             mStr += `z${durStr} `;
+                        } else if (e.notes) {
+                             const notesStr = e.notes.map(n => getAbcPitch(n.midi, scaleMap, preferFlats)).join('');
+                             if (e.notes.length > 1) {
+                                 const chordTie = e.notes.some(n => n.tied) ? '-' : '';
+                                 mStr += `[${notesStr}]${durStr}${chordTie} `;
+                             } else {
+                                 const tieSuffix = e.notes[0].tied ? '-' : '';
+                                 mStr += `${notesStr}${durStr}${tieSuffix} `;
+                             }
+                        }
+                    });
+                    abcBody += mStr.trim() + " | ";
+                }
+                if (++lineMeasureCount >= 4) { 
+                    abcBody += "\n"; 
+                    lineMeasureCount = 0; 
+                }
+            }
+            abc += abcBody.trim() + " |]\n\n";
+        });
     });
-  });
-  return abc;
+    return abc;
 }
 
 export interface TrackAbcPreview {
-  trackId: number;
-  trackName: string;
-  fileName: string;
-  abc: string;
+    trackId: number;
+    trackName: string;
+    fileName: string;
+    abc: string;
 }
 
 export function generateTrackAbcPreviews(
-  originalMidi: Midi,
-  trackIds: number[],
-  baseFileName: string,
-  eventsToDelete: Set<MidiEventType>,
-  options: ConversionOptions
+    originalMidi: Midi,
+    trackIds: number[],
+    baseFileName: string,
+    eventsToDelete: Set<MidiEventType>,
+    options: ConversionOptions
 ): TrackAbcPreview[] {
-  const { options: resolvedOptions, debug } = resolveExportOptions(options, 'abc');
-  logExportResolution(debug);
-  const baseName = baseFileName.replace(/\.abc$/i, '');
+    const { options: resolvedOptions, debug } = resolveExportOptions(options, 'abc');
+    logExportResolution(debug);
+    const baseName = baseFileName.replace(/\.abc$/i, '');
 
-  return trackIds
-    .map((trackId) => {
-      const sourceTrack = originalMidi.tracks[trackId];
-      if (!sourceTrack) return null;
+    return trackIds
+        .map((trackId) => {
+            const sourceTrack = originalMidi.tracks[trackId];
+            if (!sourceTrack) return null;
 
-      const previewMidi = new Midi();
-      if (originalMidi.header.name) previewMidi.header.name = originalMidi.header.name;
-      copyHeaderEvents(originalMidi.header, previewMidi.header, resolvedOptions);
+            const previewMidi = new Midi();
+            if (originalMidi.header.name) previewMidi.header.name = originalMidi.header.name;
+            copyHeaderEvents(originalMidi.header, previewMidi.header, resolvedOptions);
 
-      const targetTrack = previewMidi.addTrack();
-      targetTrack.name = sourceTrack.name;
-      targetTrack.instrument = sourceTrack.instrument;
-      copyAndTransformTrackEvents(
-        sourceTrack,
-        targetTrack,
-        resolvedOptions,
-        eventsToDelete,
-        previewMidi.header,
-        originalMidi.header.ppq
-      );
+            const targetTrack = previewMidi.addTrack();
+            targetTrack.name = sourceTrack.name;
+            targetTrack.instrument = sourceTrack.instrument;
+            copyAndTransformTrackEvents(
+                sourceTrack,
+                targetTrack,
+                resolvedOptions,
+                eventsToDelete,
+                previewMidi.header,
+                originalMidi.header.ppq
+            );
 
-      const fileName = `${baseName}_track${trackId + 1}.abc`;
-      const abc = renderMidiToAbc(
-        previewMidi,
-        fileName,
-        resolvedOptions,
-        getQuantizationTickValue(resolvedOptions.quantizationValue, previewMidi.header.ppq)
-      );
+            const fileName = `${baseName}_track${trackId + 1}.abc`;
+            const abc = renderMidiToAbc(
+                previewMidi,
+                fileName,
+                resolvedOptions,
+                getQuantizationTickValue(resolvedOptions.quantizationValue, previewMidi.header.ppq)
+            );
 
-      return {
-        trackId,
-        trackName: sourceTrack.name || `Track ${trackId + 1}`,
-        fileName,
-        abc,
-      };
-    })
-    .filter((item): item is TrackAbcPreview => item !== null);
+            return {
+                trackId,
+                trackName: sourceTrack.name || `Track ${trackId + 1}`,
+                fileName,
+                abc
+            };
+        })
+        .filter((item): item is TrackAbcPreview => item !== null);
 }
 
-export async function exportTracksToAbc(
-  originalMidi: Midi,
-  trackIds: number[],
-  newFileName: string,
-  eventsToDelete: Set<MidiEventType>,
-  options: ConversionOptions
-): Promise<void> {
-  const { options: resolvedOptions, debug } = resolveExportOptions(options, 'abc');
-  logExportResolution(debug);
-  const newMidi = new Midi();
-  if (originalMidi.header.name) newMidi.header.name = originalMidi.header.name;
-  copyHeaderEvents(originalMidi.header, newMidi.header, resolvedOptions);
-
-  trackIds.forEach((id) => {
-    const t = originalMidi.tracks[id];
-    if (t) {
-      const target = newMidi.addTrack();
-      target.name = t.name;
-      target.instrument = t.instrument;
-      copyAndTransformTrackEvents(
-        t,
-        target,
-        resolvedOptions,
-        eventsToDelete,
-        newMidi.header,
-        originalMidi.header.ppq
-      );
-    }
-  });
-
-  const abcStr = renderMidiToAbc(
-    newMidi,
-    newFileName,
-    resolvedOptions,
-    getQuantizationTickValue(resolvedOptions.quantizationValue, newMidi.header.ppq)
-  );
-  const blob = new Blob([abcStr], { type: 'text/plain;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = newFileName;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+export async function exportTracksToAbc(originalMidi: Midi, trackIds: number[], newFileName: string, eventsToDelete: Set<MidiEventType>, options: ConversionOptions): Promise<void> {
+    const { options: resolvedOptions, debug } = resolveExportOptions(options, 'abc');
+    logExportResolution(debug);
+    const newMidi = new Midi();
+    if (originalMidi.header.name) newMidi.header.name = originalMidi.header.name;
+    copyHeaderEvents(originalMidi.header, newMidi.header, resolvedOptions);
+    
+    trackIds.forEach(id => { 
+        const t = originalMidi.tracks[id]; 
+        if (t) { 
+            const target = newMidi.addTrack(); 
+            target.name = t.name; 
+            target.instrument = t.instrument; 
+            copyAndTransformTrackEvents(t, target, resolvedOptions, eventsToDelete, newMidi.header, originalMidi.header.ppq); 
+        } 
+    });
+    
+    const abcStr = renderMidiToAbc(newMidi, newFileName, resolvedOptions, getQuantizationTickValue(resolvedOptions.quantizationValue, newMidi.header.ppq));
+    const blob = new Blob([abcStr], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = newFileName; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
 }

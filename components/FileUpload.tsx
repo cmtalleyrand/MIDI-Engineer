@@ -21,36 +21,27 @@ export default function FileUpload({ onFileUpload, isLoading }: FileUploadProps)
     e.stopPropagation();
   }, []);
 
-  const handleDragIn = useCallback(
-    (e: React.DragEvent) => {
-      handleDrag(e);
-      if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
-        setIsDragging(true);
-      }
-    },
-    [handleDrag]
-  );
-
-  const handleDragOut = useCallback(
-    (e: React.DragEvent) => {
-      handleDrag(e);
-      setIsDragging(false);
-    },
-    [handleDrag]
-  );
-
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      handleDrag(e);
-      setIsDragging(false);
-      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-        onFileUpload(e.dataTransfer.files[0]);
-        e.dataTransfer.clearData();
-      }
-    },
-    [handleDrag, onFileUpload]
-  );
-
+  const handleDragIn = useCallback((e: React.DragEvent) => {
+    handleDrag(e);
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDragging(true);
+    }
+  }, [handleDrag]);
+  
+  const handleDragOut = useCallback((e: React.DragEvent) => {
+    handleDrag(e);
+    setIsDragging(false);
+  }, [handleDrag]);
+  
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    handleDrag(e);
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      onFileUpload(e.dataTransfer.files[0]);
+      e.dataTransfer.clearData();
+    }
+  }, [handleDrag, onFileUpload]);
+  
   const handleClick = () => {
     inputRef.current?.click();
   };
@@ -83,7 +74,9 @@ export default function FileUpload({ onFileUpload, isLoading }: FileUploadProps)
         ) : (
           <>
             <UploadIcon className="w-12 h-12 text-gray-medium group-hover:text-brand-primary transition-colors" />
-            <p className="text-lg font-semibold text-gray-300">Drag & drop a MIDI file here</p>
+            <p className="text-lg font-semibold text-gray-300">
+              Drag & drop a MIDI file here
+            </p>
             <p className="text-gray-400">or click to select a file</p>
             <p className="text-xs text-gray-500 mt-2">.mid or .midi files only</p>
           </>

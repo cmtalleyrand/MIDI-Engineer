@@ -1,7 +1,0 @@
-node_modules
-dist
-dist-ssr
-.test-dist
-package-lock.json
-public/sw.js
-tests/fixtures
