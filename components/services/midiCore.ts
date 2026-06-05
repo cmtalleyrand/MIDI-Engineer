@@ -1,104 +1,138 @@
-
 import { Midi } from '@tonejs/midi';
 import { TrackInfo, MidiEventCounts } from '../../types';
-import { detectOrnamentHypotheses, getDefaultOrnamentDetectionParams, OrnamentDetectionParams, selectOrnamentHypotheses } from './ornamentDetector';
+import {
+  detectOrnamentHypotheses,
+  getDefaultOrnamentDetectionParams,
+  OrnamentDetectionParams,
+  OrnamentAnnotatedNote,
+  selectOrnamentHypotheses,
+} from './ornamentDetector';
 
 /**
  * Analyzes a parsed MIDI object to count different types of events.
  */
 export function analyzeMidiEvents(midi: Midi): MidiEventCounts {
-    const counts: MidiEventCounts = {
-        pitchBend: 0,
-        controlChange: 0,
-        programChange: 0,
-    };
+  const counts: MidiEventCounts = {
+    pitchBend: 0,
+    controlChange: 0,
+    programChange: 0,
+  };
 
-    midi.tracks.forEach(track => {
-        counts.pitchBend += (track.pitchBends || []).length;
-        // FIX: Cast track to any to access potentially hidden programChanges property
-        counts.programChange += ((track as any).programChanges || []).length;
-        counts.controlChange += Object.values(track.controlChanges || {}).flat().length;
-    });
+  midi.tracks.forEach((track) => {
+    counts.pitchBend += (track.pitchBends || []).length;
+    // programChanges exists at runtime but is absent from the @tonejs/midi Track
+    // typings, so read it through a narrow typed view.
+    const trackWithPC = track as unknown as { programChanges?: unknown[] };
+    counts.programChange += (trackWithPC.programChanges || []).length;
+    counts.controlChange += Object.values(track.controlChanges || {}).flat().length;
+  });
 
-    return counts;
+  return counts;
 }
 
-export function detectAndTagOrnaments(notes: any[], ppq: number, overrides: Partial<OrnamentDetectionParams> = {}): any[] {
-    const sorted = [...notes].sort((a, b) => (a.ticks - b.ticks) || (a.midi - b.midi));
-    const params: OrnamentDetectionParams = { ...getDefaultOrnamentDetectionParams(ppq), ...overrides };
-    const hypotheses = detectOrnamentHypotheses(sorted, params);
-    const selected = selectOrnamentHypotheses(hypotheses);
+// Minimal note shape detectAndTagOrnaments needs from callers.
+type TaggableNote = { ticks: number; midi: number; durationTicks: number; id?: string };
 
-    const noteById = new Map<string, any>();
-    sorted.forEach((n, index) => {
-        const id = n.id ?? `n_${n.ticks}_${n.midi}_${index}`;
-        n.id = id;
-        noteById.set(id, n);
+export function detectAndTagOrnaments<T extends TaggableNote>(
+  notes: T[],
+  ppq: number,
+  overrides: Partial<OrnamentDetectionParams> = {},
+  familyMNVticks?: number
+): T[] {
+  const sorted = [...notes].sort((a, b) => a.ticks - b.ticks || a.midi - b.midi);
+  const params: OrnamentDetectionParams = {
+    ...getDefaultOrnamentDetectionParams(ppq, familyMNVticks),
+    ...overrides,
+  };
+  const hypotheses = detectOrnamentHypotheses(sorted as OrnamentAnnotatedNote[], params);
+  const selected = selectOrnamentHypotheses(hypotheses);
+
+  // The ornament tags are written through this annotated view (the dynamic
+  // `_`-fields live in RawNote-adjacent objects without an index signature).
+  const noteById = new Map<string, OrnamentAnnotatedNote>();
+  sorted.forEach((n, index) => {
+    const annotated = n as unknown as OrnamentAnnotatedNote;
+    const id = annotated.id ?? `n_${n.ticks}_${n.midi}_${index}`;
+    annotated.id = id;
+    noteById.set(id, annotated);
+  });
+
+  selected.forEach((h) => {
+    const principal = noteById.get(h.principalNoteRef);
+    if (!principal) return;
+    principal._hasOrnaments = true;
+    principal._ornamentClass = h.class;
+    principal._ornamentHypotheses = hypotheses.filter(
+      (c) => c.principalNoteRef === h.principalNoteRef
+    );
+
+    h.memberNoteIds.forEach((id) => {
+      const note = noteById.get(id);
+      if (!note) return;
+      note.isOrnament = true;
+      note._principalMidi = principal.midi;
+      note._principalTick = principal.ticks;
+      note._ornamentClass = h.class;
+      note._ornamentTimingBounds = h.timingBounds;
+      note._ornamentConfidence = h.confidence;
+      note._ornamentAmbiguityTags = h.ambiguityTags;
+      note._ornamentHypotheses = hypotheses.filter((c) => c.memberNoteIds.includes(id));
     });
+  });
 
-    selected.forEach(h => {
-        const principal = noteById.get(h.principalNoteRef);
-        if (!principal) return;
-        principal._hasOrnaments = true;
-        principal._ornamentClass = h.class;
-        principal._ornamentHypotheses = hypotheses.filter(c => c.principalNoteRef === h.principalNoteRef);
-
-        h.memberNoteIds.forEach(id => {
-            const note = noteById.get(id);
-            if (!note) return;
-            note.isOrnament = true;
-            note._principalMidi = principal.midi;
-            note._principalTick = principal.ticks;
-            note._ornamentClass = h.class;
-            note._ornamentTimingBounds = h.timingBounds;
-            note._ornamentConfidence = h.confidence;
-            note._ornamentAmbiguityTags = h.ambiguityTags;
-            note._ornamentHypotheses = hypotheses.filter(c => c.memberNoteIds.includes(id));
-        });
-    });
-
-    return sorted;
+  return sorted;
 }
 
-// TODO(pipeline-wiring): detectAndTagOrnaments currently runs only during file parse for
-// display purposes (ornamentCount on TrackInfo). Per PROJECT_INTENT §1, ornament detection
-// must also run pre-quantization inside the export/transform pipeline so that ornament-tagged
-// notes can temporarily bypass MNV rules (§2.4) and influence quantization resolution.
-// When wiring: pass the active rhythm family's MNV ticks as the second arg to
-// getDefaultOrnamentDetectionParams(ppq, familyMNVticks) so graceMaxDurTicks is correctly
-// bounded. Also respect the ConversionOptions.detectOrnaments boolean toggle.
-// Tracked: hook detectAndTagOrnaments into copyAndTransformTrackEvents in midiPipeline.ts.
-export async function parseMidiFromFile(file: File): Promise<{ midi: Midi; tracks: TrackInfo[]; eventCounts: MidiEventCounts }> {
+// NOTE(ornament-pipeline): detectAndTagOrnaments runs in two places — during
+// file parse (for the ornamentCount shown on TrackInfo) and pre-quantization
+// inside quantizeNotes (midiTransform.ts) when ConversionOptions.detectOrnaments
+// is on. The export path passes the active primary-rhythm family MNV ticks so
+// graceMaxDurTicks is bounded per spec §3.1.1.
+//
+// Still outstanding (PROJECT_INTENT §2.4 / §3.2 / §3.3): the shadow quantizer
+// does not yet *consume* the ornament tags to let sub-MNV ornament notes bypass
+// MNV structurally, evaluate the On-Beat vs Pre-Beat hypothesis, or render ABC
+// grace notes. Those are larger follow-ons tracked separately.
+export async function parseMidiFromFile(
+  file: File
+): Promise<{ midi: Midi; tracks: TrackInfo[]; eventCounts: MidiEventCounts }> {
   const arrayBuffer = await file.arrayBuffer();
   const midi = new Midi(arrayBuffer);
 
   // Filter out empty tracks to prevent "Ghost" tracks (Format 1 Conductor tracks)
   // But keep at least one track if all are empty
-  let nonBlankTracks = midi.tracks.map((t, i) => ({ t, i })).filter(item => item.t.notes.length > 0);
-  
+  let nonBlankTracks = midi.tracks
+    .map((t, i) => ({ t, i }))
+    .filter((item) => item.t.notes.length > 0);
+
   if (nonBlankTracks.length === 0) {
-      nonBlankTracks = midi.tracks.map((t, i) => ({ t, i }));
+    nonBlankTracks = midi.tracks.map((t, i) => ({ t, i }));
   }
 
   const tracks: TrackInfo[] = nonBlankTracks.map(({ t: track, i: index }) => {
-    // FIX: Using any for notes as Note is not exported
-    const notesCopy = track.notes.map(n => ({...n} as any));
+    const notesCopy = track.notes.map((n) => ({
+      midi: n.midi,
+      ticks: n.ticks,
+      durationTicks: n.durationTicks,
+    }));
     const taggedNotes = detectAndTagOrnaments(notesCopy, midi.header.ppq);
-    const ornamentCount = taggedNotes.filter(n => (n as any).isOrnament).length;
+    const ornamentCount = taggedNotes.filter(
+      (n) => (n as { isOrnament?: boolean }).isOrnament
+    ).length;
 
     return {
-        id: index, // Keep original index for referencing
-        name: track.name || `Track ${index + 1}`,
-        instrument: {
+      id: index, // Keep original index for referencing
+      name: track.name || `Track ${index + 1}`,
+      instrument: {
         name: track.instrument.name,
         number: track.instrument.number,
         family: track.instrument.family,
-        },
-        noteCount: (track.notes || []).length,
-        ornamentCount: ornamentCount
+      },
+      noteCount: (track.notes || []).length,
+      ornamentCount: ornamentCount,
     };
   });
-  
+
   const eventCounts = analyzeMidiEvents(midi);
   return { midi, tracks, eventCounts };
 }
