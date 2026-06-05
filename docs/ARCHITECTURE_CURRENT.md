@@ -92,8 +92,27 @@ Important implementation note:
 > (`midiAnalysis.ts`); the live one is `components/services/midiAnalysis.ts`.
 > The root copy is imported by nothing and is a candidate for removal.
 
-## 5) Known gap vs target architecture
+## 4c) Voice separation code status
 
-Pass 1 generates a single onset/duration candidate per family at that family's
-minimum note value, so Pass 2 reselects only between the primary and secondary
-MNV grids; coarser in-family note values are not offered as separate candidates.
+`components/services/midiVoices.ts` `distributeToVoices` is a density/sustain
+heuristic, not the constraint-based, continuity-tracking solver described in
+`PROJECT_INTENT` §4. It slices the timeline by note on/off events, derives a
+voice count from the deepest density sustained for >= 1 measure, assigns anchor
+notes top-down by pitch within those dense slices, then greedily fills the
+remaining notes by a simple cost (pitch interval to neighbours + a register-zone
+bias + island/wake-up penalties). A note that collides with every voice becomes
+an orphan. It does not track per-line identity across the piece and has no
+explicit voice-crossing constraint.
+
+## 5) Known gaps vs target architecture (PROJECT_INTENT)
+
+- **Voice separation (§4):** the implementation is the density/sustain heuristic
+  in §4c, not the constraint-based, continuity-tracking solver the spec
+  describes.
+- **Ornaments (§3):** `detectAndTagOrnaments` tags notes (consumed by Piano Roll
+  display and analysis), but the tags are not read by quantization or ABC
+  rendering, so detected ornaments do not yet influence exported output.
+- **Shadow-quantization candidates (§2):** Pass 1 generates a single
+  onset/duration candidate per family at that family's minimum note value, so
+  Pass 2 reselects only between the primary and secondary MNV grids; coarser
+  in-family note values are not offered as separate candidates.
