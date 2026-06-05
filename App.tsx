@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { AppState } from './types';
 import Header from './components/Header';
@@ -41,29 +42,27 @@ function MidiAppContent() {
     }
   };
 
-  const activeMessage =
-    ui.errorMessage || project.loadError || playback.playbackError || ui.successMessage;
-  const activeMessageType =
-    ui.errorMessage || project.loadError || playback.playbackError ? 'error' : 'success';
+  const activeMessage = ui.errorMessage || project.loadError || playback.playbackError || ui.successMessage;
+  const activeMessageType = (ui.errorMessage || project.loadError || playback.playbackError) ? 'error' : 'success';
 
   return (
     <>
       <div className="min-h-screen bg-gray-darker flex flex-col items-center p-4 sm:p-6 lg:p-8 font-sans pb-24">
-        <Header isInstalled={ui.isInstalled} onInstallClick={ui.handleInstallClick} />
+        <Header 
+          isInstalled={ui.isInstalled} 
+          onInstallClick={ui.handleInstallClick}
+        />
         <main className="w-full max-w-4xl mx-auto flex-grow flex flex-col items-center justify-center">
           {!computed.isLoadedState ? (
-            <div className="w-full max-w-lg text-center">
-              <FileUpload
-                onFileUpload={project.actions.handleFileUpload}
-                isLoading={project.loadState === AppState.LOADING}
-              />
-              {project.loadState === AppState.ERROR && (
-                <div className="mt-4 p-4 bg-red-900/50 border border-red-700 text-red-300 rounded-lg animate-fade-in">
-                  <p className="font-bold">An Error Occurred</p>
-                  <p>{project.loadError}</p>
-                </div>
-              )}
-            </div>
+              <div className="w-full max-w-lg text-center">
+                  <FileUpload onFileUpload={project.actions.handleFileUpload} isLoading={project.loadState === AppState.LOADING} />
+                  {project.loadState === AppState.ERROR && (
+                      <div className="mt-4 p-4 bg-red-900/50 border border-red-700 text-red-300 rounded-lg animate-fade-in">
+                        <p className="font-bold">An Error Occurred</p>
+                        <p>{project.loadError}</p>
+                      </div>
+                  )}
+              </div>
           ) : (
             <div className="w-full animate-fade-in pb-12">
               <TrackList
@@ -78,36 +77,33 @@ function MidiAppContent() {
                 onShowPianoRoll={handlers.handleShowPianoRoll}
                 onAnalyzeTrack={handlers.handleAnalyzeTrack}
               />
-
-              <ConversionSettings
+              
+              <ConversionSettings 
                 eventCounts={project.eventCounts}
                 quantizationWarning={computed.quantizationWarning}
                 inversionStats={computed.inversionStats}
               />
 
               {activeMessage && (
-                <div className="my-4">
-                  <Notification
-                    message={activeMessage}
-                    type={activeMessageType}
-                    onDismiss={() => {
-                      ui.clearMessages();
-                      playback.setPlaybackError('');
-                    }}
-                  />
-                </div>
+                  <div className="my-4">
+                    <Notification 
+                        message={activeMessage} 
+                        type={activeMessageType} 
+                        onDismiss={() => { ui.clearMessages(); playback.setPlaybackError(''); }} 
+                    />
+                  </div>
               )}
 
               <ActionPanel
-                onCombine={handlers.handleCombine}
-                onExportAbc={handlers.handleExportAbc}
-                onPreviewAbc={handlers.handlePreviewAbc}
-                onAnalyzeSelection={handlers.handleAnalyzeSelection}
-                onOpenDrumGenerator={handlers.handleOpenDrumGenerator}
-                isCombining={ui.uiState === AppState.COMBINING}
-                isExportingAbc={ui.isExportingAbc}
-                canProcess={project.selectedTracks.size >= 1}
-                selectedCount={project.selectedTracks.size}
+                 onCombine={handlers.handleCombine}
+                 onExportAbc={handlers.handleExportAbc}
+                 onPreviewAbc={handlers.handlePreviewAbc}
+                 onAnalyzeSelection={handlers.handleAnalyzeSelection}
+                 onOpenDrumGenerator={handlers.handleOpenDrumGenerator}
+                 isCombining={ui.uiState === AppState.COMBINING}
+                 isExportingAbc={ui.isExportingAbc}
+                 canProcess={project.selectedTracks.size >= 1}
+                 selectedCount={project.selectedTracks.size}
               />
               <AbcPreviewPanel
                 previews={ui.abcPreviews}
@@ -137,7 +133,7 @@ function MidiAppContent() {
           onClose={() => ui.setIsAnalysisVisible(false)}
           title={`Analysis: ${ui.analysisData.trackName}`}
         >
-          <TrackAnalysis data={ui.analysisData} />
+           <TrackAnalysis data={ui.analysisData} />
         </Modal>
       )}
 
@@ -164,8 +160,7 @@ function MidiAppContent() {
         >
           <div className="text-gray-200 p-4 space-y-6">
             <p className="text-sm text-gray-400">
-              Your browser doesn't support automatic installation triggering, but you can install
-              this app manually to your home screen.
+              Your browser doesn't support automatic installation triggering, but you can install this app manually to your home screen.
             </p>
 
             <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
@@ -174,16 +169,9 @@ function MidiAppContent() {
                 <h3 className="font-bold text-lg text-white">Android</h3>
               </div>
               <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300 ml-1">
-                <li>
-                  Tap the <strong>Menu</strong> icon (three dots <strong>⋮</strong>) in the top
-                  right corner of Chrome.
-                </li>
-                <li>
-                  Select <strong>"Install App"</strong> or <strong>"Add to Home Screen"</strong>.
-                </li>
-                <li>
-                  Confirm by tapping <strong>Install</strong>.
-                </li>
+                <li>Tap the <strong>Menu</strong> icon (three dots <strong>⋮</strong>) in the top right corner of Chrome.</li>
+                <li>Select <strong>"Install App"</strong> or <strong>"Add to Home Screen"</strong>.</li>
+                <li>Confirm by tapping <strong>Install</strong>.</li>
               </ol>
             </div>
 
@@ -193,20 +181,14 @@ function MidiAppContent() {
                 <h3 className="font-bold text-lg text-white">iOS (iPhone/iPad)</h3>
               </div>
               <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300 ml-1">
-                <li>
-                  Tap the <strong>Share</strong> icon (square with arrow) at the bottom of Safari.
-                </li>
-                <li>
-                  Scroll down and tap <strong>"Add to Home Screen"</strong>.
-                </li>
-                <li>
-                  Tap <strong>Add</strong> in the top right corner.
-                </li>
+                <li>Tap the <strong>Share</strong> icon (square with arrow) at the bottom of Safari.</li>
+                <li>Scroll down and tap <strong>"Add to Home Screen"</strong>.</li>
+                <li>Tap <strong>Add</strong> in the top right corner.</li>
               </ol>
             </div>
-
+            
             <div className="text-center pt-4">
-              <button
+              <button 
                 onClick={() => ui.setShowInstallHelp(false)}
                 className="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
               >

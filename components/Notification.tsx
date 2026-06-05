@@ -16,12 +16,10 @@ export default function Notification({ message, type, onDismiss }: NotificationP
   if (!message) return null;
 
   return (
-    <div
-      className={`relative flex items-center justify-between p-4 border rounded-lg animate-fade-in ${typeClasses[type]}`}
-    >
+    <div className={`relative flex items-center justify-between p-4 border rounded-lg animate-fade-in ${typeClasses[type]}`}>
       <p>{message}</p>
-      <button
-        onClick={onDismiss}
+      <button 
+        onClick={onDismiss} 
         className="ml-4 p-1 rounded-full hover:bg-white/10 transition-colors"
         aria-label="Dismiss notification"
       >

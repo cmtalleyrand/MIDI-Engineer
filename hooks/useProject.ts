@@ -1,3 +1,4 @@
+
 import { useState, useCallback } from 'react';
 import { Midi } from '@tonejs/midi';
 import { TrackInfo, MidiEventCounts, AppState } from '../types';
@@ -13,13 +14,13 @@ export const useProject = () => {
   const [loadError, setLoadError] = useState<string>('');
 
   const handleResetProject = useCallback(() => {
-    setMidiData(null);
-    setTrackInfo([]);
-    setSelectedTracks(new Set());
-    setFileName('');
-    setEventCounts(null);
-    setLoadState(AppState.IDLE);
-    setLoadError('');
+      setMidiData(null);
+      setTrackInfo([]);
+      setSelectedTracks(new Set());
+      setFileName('');
+      setEventCounts(null);
+      setLoadState(AppState.IDLE);
+      setLoadError('');
   }, []);
 
   const handleFileUpload = useCallback(async (file: File) => {
@@ -39,14 +40,14 @@ export const useProject = () => {
       setFileName(file.name);
       setLoadState(AppState.LOADED);
     } catch (error) {
-      console.error('MIDI Parsing Error:', error);
+      console.error("MIDI Parsing Error:", error);
       setLoadError("Failed to parse MIDI file. Please ensure it's a valid .mid file.");
       setLoadState(AppState.ERROR);
     }
   }, []);
 
   const handleTrackSelect = useCallback((trackId: number) => {
-    setSelectedTracks((prevSelected) => {
+    setSelectedTracks(prevSelected => {
       const newSelected = new Set(prevSelected);
       if (newSelected.has(trackId)) {
         newSelected.delete(trackId);
@@ -56,13 +57,13 @@ export const useProject = () => {
       return newSelected;
     });
   }, []);
-
+  
   const handleSelectAllTracks = useCallback(() => {
     if (trackInfo.length > 0 && selectedTracks.size === trackInfo.length) {
-      setSelectedTracks(new Set());
+        setSelectedTracks(new Set());
     } else {
-      const allTrackIds = trackInfo.map((track) => track.id);
-      setSelectedTracks(new Set(allTrackIds));
+        const allTrackIds = trackInfo.map(track => track.id);
+        setSelectedTracks(new Set(allTrackIds));
     }
   }, [trackInfo, selectedTracks]);
 
@@ -77,10 +78,10 @@ export const useProject = () => {
     setLoadState, // Exposed for external setting (e.g. during processing)
     setLoadError,
     actions: {
-      handleFileUpload,
-      handleTrackSelect,
-      handleSelectAllTracks,
-      handleResetProject,
-    },
+        handleFileUpload,
+        handleTrackSelect,
+        handleSelectAllTracks,
+        handleResetProject
+    }
   };
 };

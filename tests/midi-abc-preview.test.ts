@@ -31,14 +31,8 @@ function buildOptions(partial: Partial<ConversionOptions> = {}): ConversionOptio
     voiceSeparationDisableChords: false,
     outputStrategy: 'combine',
     keySignatureSpelling: 'auto',
-    abcKeyExport: {
-      enabled: false,
-      tonicLetter: 'C',
-      tonicAccidental: '=',
-      mode: 'maj',
-      additionalAccidentals: [],
-    },
-    ...partial,
+    abcKeyExport: { enabled: false, tonicLetter: 'C', tonicAccidental: '=', mode: 'maj', additionalAccidentals: [] },
+    ...partial
   };
 }
 
@@ -52,37 +46,11 @@ export function runMidiAbcPreviewTests() {
   track2.name = 'Bass';
   track2.addNote({ midi: 48, ticks: 0, durationTicks: 480, velocity: 0.8 });
 
-  const previews = generateTrackAbcPreviews(
-    midi,
-    [0, 1],
-    'song_export.abc',
-    new Set(),
-    buildOptions()
-  );
+  const previews = generateTrackAbcPreviews(midi, [0, 1], 'song_export.abc', new Set(), buildOptions());
 
-  assert.equal(
-    previews.length,
-    2,
-    'Track-level ABC preview generation should produce one preview per selected track.'
-  );
-  assert.equal(
-    previews[0].fileName,
-    'song_export_track1.abc',
-    'Track-level ABC preview file naming should encode 1-indexed track ordinal.'
-  );
-  assert.equal(
-    previews[1].fileName,
-    'song_export_track2.abc',
-    'Track-level ABC preview file naming should encode each selected track ordinal independently.'
-  );
-  assert.match(
-    previews[0].abc,
-    /V:1 name="Lead"/,
-    'Preview output should preserve the source track label in ABC voice metadata.'
-  );
-  assert.match(
-    previews[1].abc,
-    /V:1 name="Bass"/,
-    'Each preview should contain only the corresponding single-track voice declaration.'
-  );
+  assert.equal(previews.length, 2, 'Track-level ABC preview generation should produce one preview per selected track.');
+  assert.equal(previews[0].fileName, 'song_export_track1.abc', 'Track-level ABC preview file naming should encode 1-indexed track ordinal.');
+  assert.equal(previews[1].fileName, 'song_export_track2.abc', 'Track-level ABC preview file naming should encode each selected track ordinal independently.');
+  assert.match(previews[0].abc, /V:1 name="Lead"/, 'Preview output should preserve the source track label in ABC voice metadata.');
+  assert.match(previews[1].abc, /V:1 name="Bass"/, 'Each preview should contain only the corresponding single-track voice declaration.');
 }

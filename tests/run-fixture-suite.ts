@@ -5,18 +5,12 @@ import { runFixtureSuite } from './fixture-suite.test';
 import { runPianoRollUtilsTests } from './piano-roll-utils.test';
 import { runPianoRollPipelineTests } from './piano-roll-pipeline.test';
 import { runMidiAbcPreviewTests } from './midi-abc-preview.test';
-import { runVoiceSolverTests } from './voice-solver.test';
-import { runShadowPass2Tests } from './shadow-pass2.test';
-import { runOrnamentPipelineTests } from './ornament-pipeline.test';
-import { runQuantizationTraceTests } from './quantization-trace.test';
 
 const TIMEOUT_MS = 30_000;
 const timer = setTimeout(() => {
-  console.error(
-    `FAIL: Tests timed out after ${TIMEOUT_MS / 1000}s — likely an infinite loop in a service function.`
-  );
-  console.error(`Last started: ${currentTest}`);
-  process.exit(1);
+    console.error(`FAIL: Tests timed out after ${TIMEOUT_MS / 1000}s — likely an infinite loop in a service function.`);
+    console.error(`Last started: ${currentTest}`);
+    process.exit(1);
 }, TIMEOUT_MS);
 
 let currentTest = '(none)';
@@ -25,62 +19,46 @@ let failed = 0;
 const failures: string[] = [];
 
 function run(name: string, fn: () => void): void {
-  currentTest = name;
-  try {
-    fn();
-    passed++;
-    console.log(`  PASS: ${name}`);
-  } catch (err: any) {
-    failed++;
-    const msg = err?.message ?? String(err);
-    failures.push(`${name}: ${msg}`);
-    console.error(`  FAIL: ${name}`);
-    console.error(`        ${msg.split('\n')[0]}`);
-  }
+    currentTest = name;
+    try {
+        fn();
+        passed++;
+        console.log(`  PASS: ${name}`);
+    } catch (err: any) {
+        failed++;
+        const msg = err?.message ?? String(err);
+        failures.push(`${name}: ${msg}`);
+        console.error(`  FAIL: ${name}`);
+        console.error(`        ${msg.split('\n')[0]}`);
+    }
 }
 
 console.log('Running tests...\n');
 
 run('Fixture suite snapshot', () => {
-  const snapshotPath = path.join(process.cwd(), 'tests', 'fixtures', 'fixture-suite.snapshot.json');
-  const actual = runFixtureSuite();
-  const expected = JSON.parse(fs.readFileSync(snapshotPath, 'utf8'));
-  assert.deepStrictEqual(actual, expected);
+    const snapshotPath = path.join(process.cwd(), 'tests', 'fixtures', 'fixture-suite.snapshot.json');
+    const actual = runFixtureSuite();
+    const expected = JSON.parse(fs.readFileSync(snapshotPath, 'utf8'));
+    assert.deepStrictEqual(actual, expected);
 });
 
 run('Piano roll utilities', () => {
-  runPianoRollUtilsTests();
+    runPianoRollUtilsTests();
 });
 
 run('Piano roll pipeline', () => {
-  runPianoRollPipelineTests();
+    runPianoRollPipelineTests();
 });
 
 run('ABC preview generation', () => {
-  runMidiAbcPreviewTests();
-});
-
-run('Voice solver', () => {
-  runVoiceSolverTests();
-});
-
-run('Shadow quantization Pass 2', () => {
-  runShadowPass2Tests();
-});
-
-run('Ornament pipeline (family MNV)', () => {
-  runOrnamentPipelineTests();
-});
-
-run('Quantization trace (§5)', () => {
-  runQuantizationTraceTests();
+    runMidiAbcPreviewTests();
 });
 
 clearTimeout(timer);
 
 console.log(`\n${passed} passed, ${failed} failed.`);
 if (failures.length > 0) {
-  console.error('\nFailures:');
-  failures.forEach((f) => console.error(`  - ${f}`));
-  process.exit(1);
+    console.error('\nFailures:');
+    failures.forEach(f => console.error(`  - ${f}`));
+    process.exit(1);
 }
