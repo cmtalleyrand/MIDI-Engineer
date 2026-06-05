@@ -36,11 +36,12 @@ type TaggableNote = { ticks: number; midi: number; durationTicks: number; id?: s
 export function detectAndTagOrnaments<T extends TaggableNote>(
   notes: T[],
   ppq: number,
-  overrides: Partial<OrnamentDetectionParams> = {}
+  overrides: Partial<OrnamentDetectionParams> = {},
+  familyMNVticks?: number
 ): T[] {
   const sorted = [...notes].sort((a, b) => a.ticks - b.ticks || a.midi - b.midi);
   const params: OrnamentDetectionParams = {
-    ...getDefaultOrnamentDetectionParams(ppq),
+    ...getDefaultOrnamentDetectionParams(ppq, familyMNVticks),
     ...overrides,
   };
   const hypotheses = detectOrnamentHypotheses(sorted as OrnamentAnnotatedNote[], params);
@@ -82,14 +83,16 @@ export function detectAndTagOrnaments<T extends TaggableNote>(
   return sorted;
 }
 
-// TODO(pipeline-wiring): detectAndTagOrnaments currently runs only during file parse for
-// display purposes (ornamentCount on TrackInfo). Per PROJECT_INTENT §1, ornament detection
-// must also run pre-quantization inside the export/transform pipeline so that ornament-tagged
-// notes can temporarily bypass MNV rules (§2.4) and influence quantization resolution.
-// When wiring: pass the active rhythm family's MNV ticks as the second arg to
-// getDefaultOrnamentDetectionParams(ppq, familyMNVticks) so graceMaxDurTicks is correctly
-// bounded. Also respect the ConversionOptions.detectOrnaments boolean toggle.
-// Tracked: hook detectAndTagOrnaments into copyAndTransformTrackEvents in midiPipeline.ts.
+// NOTE(ornament-pipeline): detectAndTagOrnaments runs in two places — during
+// file parse (for the ornamentCount shown on TrackInfo) and pre-quantization
+// inside quantizeNotes (midiTransform.ts) when ConversionOptions.detectOrnaments
+// is on. The export path passes the active primary-rhythm family MNV ticks so
+// graceMaxDurTicks is bounded per spec §3.1.1.
+//
+// Still outstanding (PROJECT_INTENT §2.4 / §3.2 / §3.3): the shadow quantizer
+// does not yet *consume* the ornament tags to let sub-MNV ornament notes bypass
+// MNV structurally, evaluate the On-Beat vs Pre-Beat hypothesis, or render ABC
+// grace notes. Those are larger follow-ons tracked separately.
 export async function parseMidiFromFile(
   file: File
 ): Promise<{ midi: Midi; tracks: TrackInfo[]; eventCounts: MidiEventCounts }> {

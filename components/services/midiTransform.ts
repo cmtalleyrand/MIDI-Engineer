@@ -91,7 +91,12 @@ export function quantizeNotes(
   let notesToProcess: RawNote[] = [...notes.map((n) => ({ ...n }))];
 
   if (options.detectOrnaments) {
-    notesToProcess = detectAndTagOrnaments(notesToProcess, ppq);
+    // Bound graceMaxDurTicks to the active primary-rhythm family MNV (spec §3.1.1)
+    // so ornament thresholds track the chosen rhythm grid rather than a default.
+    const familyMNVticks = options.primaryRhythm.enabled
+      ? getQuantizationTickValue(options.primaryRhythm.minNoteValue, ppq)
+      : undefined;
+    notesToProcess = detectAndTagOrnaments(notesToProcess, ppq, {}, familyMNVticks || undefined);
   }
 
   if (options.shiftToMeasure && notesToProcess.length > 0) {

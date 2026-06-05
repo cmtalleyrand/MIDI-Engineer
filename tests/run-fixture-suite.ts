@@ -7,6 +7,7 @@ import { runPianoRollPipelineTests } from './piano-roll-pipeline.test';
 import { runMidiAbcPreviewTests } from './midi-abc-preview.test';
 import { runVoiceSolverTests } from './voice-solver.test';
 import { runShadowPass2Tests } from './shadow-pass2.test';
+import { runOrnamentPipelineTests } from './ornament-pipeline.test';
 
 const TIMEOUT_MS = 30_000;
 const timer = setTimeout(() => {
@@ -64,6 +65,10 @@ run('Voice solver', () => {
 
 run('Shadow quantization Pass 2', () => {
   runShadowPass2Tests();
+});
+
+run('Ornament pipeline (family MNV)', () => {
+  runOrnamentPipelineTests();
 });
 
 clearTimeout(timer);
