@@ -228,6 +228,9 @@ export interface RawNote {
     pass1BestFamily: RhythmFamily;
     selectedFamily: RhythmFamily;
     selectedNoteValue: string;
+    // Raw (pre-quantization) onset/duration, for the §5 trace payload.
+    rawOnsetTicks: number;
+    rawDurationTicks: number;
     selectedOnsetTicks: number;
     selectedDurationTicks: number;
     objectiveBreakdown: {

@@ -542,6 +542,8 @@ function resolveGridConflicts(analyses: ShadowNoteAnalysis[], ppq: number): RawN
         pass1BestFamily: analysis.bestCandidate.family,
         selectedFamily: picked.family,
         selectedNoteValue: picked.noteValue,
+        rawOnsetTicks: analysis.original.ticks,
+        rawDurationTicks: analysis.original.durationTicks,
         selectedOnsetTicks: picked.onset.ticks,
         selectedDurationTicks: picked.duration.durationTicks,
         objectiveBreakdown: winner.objective,

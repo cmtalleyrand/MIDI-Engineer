@@ -8,6 +8,7 @@ import { runMidiAbcPreviewTests } from './midi-abc-preview.test';
 import { runVoiceSolverTests } from './voice-solver.test';
 import { runShadowPass2Tests } from './shadow-pass2.test';
 import { runOrnamentPipelineTests } from './ornament-pipeline.test';
+import { runQuantizationTraceTests } from './quantization-trace.test';
 
 const TIMEOUT_MS = 30_000;
 const timer = setTimeout(() => {
@@ -69,6 +70,10 @@ run('Shadow quantization Pass 2', () => {
 
 run('Ornament pipeline (family MNV)', () => {
   runOrnamentPipelineTests();
+});
+
+run('Quantization trace (§5)', () => {
+  runQuantizationTraceTests();
 });
 
 clearTimeout(timer);

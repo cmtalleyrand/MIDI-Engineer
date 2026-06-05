@@ -3,6 +3,10 @@ import { PianoRollTrackData, PianoRollNote, VoiceAllocationMath } from '../types
 import { getVoiceLabel } from './services/midiVoices';
 import { canSelectPianoRollNote, sortNotesForPianoRollRendering } from './services/pianoRollUtils';
 import { ticksPerMeasure as measureTicks } from './services/timeUtils';
+import {
+  buildQuantizationTrace,
+  serializeQuantizationTrace,
+} from './services/quantizationTrace';
 import { CloseIcon } from './Icons';
 
 interface PianoRollProps {
@@ -188,6 +192,21 @@ const PianoRoll: React.FC<PianoRollProps> = ({ trackData }) => {
   const handleZoomIn = () => performZoom(Math.min(zoom * 1.25, 4));
   const handleZoomOut = () => performZoom(Math.max(zoom * 0.8, 0.1));
 
+  // Download a machine-readable per-note quantization/voice trace (§5).
+  const hasTrace = notes.some((n) => n.shadowDecision || n.explanation);
+  const handleDownloadTrace = () => {
+    const trace = buildQuantizationTrace(notes, ppq, timeSignature);
+    const blob = new Blob([serializeQuantizationTrace(trace)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${(trackData.name || 'track').replace(/\s+/g, '_')}_trace.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   // Unique ID for pattern to force redraw on zoom
   const patternId = `beatPattern-${zoom}`;
 
@@ -283,8 +302,19 @@ const PianoRoll: React.FC<PianoRollProps> = ({ trackData }) => {
           </label>
         </div>
 
-        <div className="text-xs text-gray-500">
-          {timeSignature.numerator}/{timeSignature.denominator} Time • {ppq} PPQ
+        <div className="flex items-center gap-3">
+          {hasTrace && (
+            <button
+              onClick={handleDownloadTrace}
+              className="text-xs px-2 py-1 rounded bg-gray-700 text-gray-200 hover:bg-gray-600 transition-colors"
+              title="Download a machine-readable per-note decision trace (JSON)"
+            >
+              Download Trace
+            </button>
+          )}
+          <div className="text-xs text-gray-500">
+            {timeSignature.numerator}/{timeSignature.denominator} Time • {ppq} PPQ
+          </div>
         </div>
       </div>
 

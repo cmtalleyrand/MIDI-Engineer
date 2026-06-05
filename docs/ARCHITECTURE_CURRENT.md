@@ -102,6 +102,13 @@ Important implementation note:
   `beatDetection.ts` (beat profile + timpani pitch detection) and
   `drumPatterns.ts` (the three pattern generators); `drumGenerator.ts` is a thin
   orchestrator re-exporting the public API.
+- Voice separation (`midiVoices.ts`) is a constraint-based tracker (§4): vertical
+  density → top-down anchor assignment → weighted path-cost gap-fill, with the
+  cost model in `voiceCosts.ts` and an orphan lane. Ornament detection threads
+  the active family MNV into its grace threshold.
+- `quantizationTrace.ts` builds the §5 machine-readable per-note trace (raw +
+  resolved timing, confidence, conflicts, candidates); the Piano Roll exposes it
+  via a "Download Trace" button and renders the in-UI rationale panels.
 
 > Note: a stale duplicate of the analysis module exists at the repository root
 > (`midiAnalysis.ts`); the live one is `components/services/midiAnalysis.ts`.

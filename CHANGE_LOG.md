@@ -11,6 +11,41 @@ Purpose: persistent high-detail project memory for future AI sessions and mainta
 
 ## [Unreleased]
 
+### Added / Changed - Code-review Phase 2: spec features, tests & doc corrections
+
+Behaviour-changing feature work (guarded by new unit tests; the broad fixture
+snapshot stayed byte-identical throughout, as the changes were additive or
+exercised by new targeted tests rather than the existing fixtures).
+
+- **2a — constraint-based voice solver (§4).** Rewrote `distributeToVoices` as a
+  staged tracker: vertical-density voice count, multi-level top-down anchor
+  assignment at sustained dense columns, and weighted path-cost gap-fill. New
+  `voiceCosts.ts` houses the cost model — pitch-leap with octave/>octave/~15st
+  discontinuities, register-center continuity, gap-open wake-up penalty,
+  chord-fragmentation, and a near-hard crossing constraint — plus an orphan lane
+  (§4.4.1). Module is now fully typed. `tests/voice-solver.test.ts` covers empty,
+  single-note, conservation, SATB top-down split, strict-mono outlier, crossing
+  pressure and internal non-overlap.
+- **2b — Shadow Quantization Pass 2 (§2.5).** Investigation found Pass 2 was
+  **already** a contextual conflict solver (not the passthrough the architecture
+  doc claimed). Added `tests/shadow-pass2.test.ts` to pin the Type-1/2/3 conflict
+  behavior + §2.5.2 ordering, and corrected `ARCHITECTURE_CURRENT.md`. The real
+  remaining gap (Pass 1 candidate breadth) is now documented.
+- **2c — ornament pipeline (§3.1.1).** Ornament detection already ran
+  pre-quantization in `quantizeNotes`; now the active primary-rhythm family MNV
+  ticks are threaded through to `getDefaultOrnamentDetectionParams` so
+  `graceMaxDurTicks` tracks the chosen grid. `tests/ornament-pipeline.test.ts`
+  proves the threshold shift. Remaining §2.4/§3.2/§3.3 work (quantizer consuming
+  tags, on/pre-beat hypothesis, ABC grace rendering) is scoped in the midiCore
+  note.
+- **2d — transparency / trace (§5).** Added `rawOnsetTicks`/`rawDurationTicks`
+  to the per-note `shadowDecision` payload, a `quantizationTrace.ts` builder/
+  serializer, and a "Download Trace" button in the Piano Roll that exports a
+  machine-readable JSON trace (raw + resolved timing, confidence, conflicts,
+  candidates, objective breakdown). The in-UI "why changed" panels already
+  existed. `tests/quantization-trace.test.ts` covers the payload + round-trip.
+- Removed the orphaned root-level `midiAnalysis.ts` duplicate.
+
 ### Added / Changed - Code-review Phase 1: tooling, cleanup & type-safety foundation
 
 Behaviour-preserving foundation pass (fixture snapshot byte-identical throughout).
