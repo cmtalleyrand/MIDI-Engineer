@@ -12,22 +12,25 @@ It is aimed primarily at musicians (especially non-coders) who need precise cont
 ## Key Features
 
 ### 1) Track Management & Playback
+
 - **Upload & Parse:** Drag-and-drop `.mid` ingestion using `@tonejs/midi`.
 - **Track Selection:** Choose specific tracks for processing and analysis.
 - **Audio Preview:** Real-time playback for selected material.
 - **Piano Roll:** Visual note inspection with zooming and voice coloring support.
 
 ### 2) Analysis Engine
+
 - **Rhythmic Integrity:** Inspect timing tightness and duration regularity.
 - **Key & Mode Prediction:** Major/minor/modal inference from pitch class behavior.
 - **Chord Detection:** Multiple strategies for harmonic interpretation:
-  - *Sustain* (overlap/held-note driven)
-  - *Attack* (simultaneous onset driven)
-  - *Hybrid* (mixed behavior for polyphonic/arpeggiated textures)
-  - *Beat-synced* (bucketed harmonic rhythm view)
+  - _Sustain_ (overlap/held-note driven)
+  - _Attack_ (simultaneous onset driven)
+  - _Hybrid_ (mixed behavior for polyphonic/arpeggiated textures)
+  - _Beat-synced_ (bucketed harmonic rhythm view)
 - **Voice Leading:** Interval/histogram analysis for melodic-line smoothness.
 
 ### 3) Transformation Pipeline
+
 - **Quantization & Rhythm Control:** Primary/secondary rhythm settings with configurable minimum note values.
 - **Duration Constraints:** Cleanup of micro-notes/short artifacts via filtering thresholds.
 - **Overlap Pruning:** Shortening/reconciling note overlaps for cleaner output.
@@ -36,11 +39,13 @@ It is aimed primarily at musicians (especially non-coders) who need precise cont
 - **Modal Conversion:** Pitch remapping from one scale/mode context to another.
 
 ### 4) Voice Separation
+
 - Split polyphonic content into structural voices with SATB-oriented intent.
 - Keep label output compact (e.g., `S1`, `A1`, `T1`, `B1`) with up to 8 lanes.
 - Supports analysis/visual use while preserving export-mode behavior rules.
 
 ### 5) Export
+
 - **MIDI export** for downstream production workflows.
 - **ABC export** for notation workflows.
 - **Duplicate-note hygiene:** Exact duplicate notes (same pitch, onset, and duration) are removed during export.
@@ -65,10 +70,22 @@ This split exists because notation readability and performance-preserving MIDI o
 
 ```bash
 npm install
-npm run dev
-npm run build
-npm run preview
+npm run dev       # start the Vite dev server (port 3000)
+npm run build     # production build to dist/
+npm run preview   # preview the production build
 ```
+
+### Quality checks
+
+```bash
+npm run typecheck # tsc --noEmit
+npm run lint      # ESLint
+npm run format    # Prettier (write); use format:check in CI
+npm test          # fixture-based snapshot/integration suite
+```
+
+These also run automatically in CI (`.github/workflows/ci.yml`) on pull requests
+and branch pushes.
 
 ## GitHub Pages Deployment
 
@@ -78,6 +95,7 @@ This project must be deployed from the **built `dist/` artifact**, not directly 
 - In GitHub repository settings, set **Pages → Build and deployment → Source = GitHub Actions**.
 
 **⚠️ CRITICAL: Base Path Configuration**
+
 - This app is deployed to `https://cmtalleyrand.github.io/MIDI-Engineer/` (subdirectory deployment)
 - The `vite.config.ts` must set `base: '/MIDI-Engineer/'` for production builds
 - Using relative paths (e.g., `./`) will break module loading and cause startup failures

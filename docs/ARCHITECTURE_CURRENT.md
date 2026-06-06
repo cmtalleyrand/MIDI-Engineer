@@ -15,10 +15,12 @@ This file documents what the code currently does (not target intent).
 ## 2) Active processing path
 
 Primary transformation/export path is routed through:
+
 - `components/services/midiPipeline.ts`
 - helper functions from `midiTransform.ts`, `midiVoices.ts`, and related service modules.
 
 `copyAndTransformTrackEvents` currently performs (in order):
+
 1. note copy + transposition + PPQ normalization
 2. short-note filter
 3. quantization (`quantizeNotes`)
@@ -31,6 +33,7 @@ Primary transformation/export path is routed through:
 10. event copy/transform for CC/pitch bend/program change (unless filtered)
 
 Output strategy handling in `combineAndDownload`:
+
 - `separate_tracks`: transform each selected source track independently
 - `combine`: merge selected transformed notes into one track
 - `separate_voices`: combine then run voice distribution and emit multiple tracks
@@ -38,10 +41,12 @@ Output strategy handling in `combineAndDownload`:
 ## 3) Analysis path
 
 Analysis entry points are in `components/services/midiAnalysis.ts`:
+
 - `analyzeTrack`
 - `analyzeTrackSelection`
 
 Current analysis includes:
+
 - rhythm statistics
 - chord detection variants
 - key prediction
@@ -52,16 +57,62 @@ Voice assignment is currently used for analysis enrichment and display.
 
 ## 4) Shadow quantization code status
 
-`components/services/shadowQuantizer.ts` exists and includes:
-- Pass 1 candidate scoring and confidence classification
-- Pass 2 function (`resolveGridConflicts`) that currently maps each note to Pass 1 best candidate without contextual optimization
-- duration snap pass based on chosen candidate note value
+`components/services/shadowQuantizer.ts` runs two passes:
+
+- Pass 1 (`analyzeShadowCertainty`): scores each note against the primary and
+  secondary grids and assigns a confidence class (Certain / Weak_Primary /
+  Ambiguous).
+- Pass 2 (`resolveGridConflicts`): for each note it evaluates the candidate set
+  (best + alternatives) via `evaluateHypothesisAtIndex`, scoring an objective
+  that combines conflict penalties (unison overlap, short polyphony blips, local
+  rhythm-family mismatch) with movement, ordering and confidence terms, then
+  picks the lowest-cost candidate. Each note records a `shadowDecision` trace
+  (selected family/value, conflict types, objective breakdown, alternatives).
 
 Important implementation note:
+
 - this module is not the sole mandatory engine for all export paths today.
 - the active export pipeline is primarily driven by `midiPipeline` + `midiTransform`.
 
-## 5) Known gap vs target architecture
+## 4b) Shared service utilities
 
-The target spec expects a fully contextual Pass 2 conflict resolver (density blips, overlap negotiation, contextual rhythm consistency, etc.).
-Current implementation does not yet realize this full behavior.
+- `components/services/timeUtils.ts`: single source of truth for
+  `ticksPerMeasure()` and the prune/short-note threshold ladder
+  (`pruneThresholdTicks()` / `PRUNE_THRESHOLD_MULTIPLIERS`).
+- `components/services/debug.ts`: flag-gated `debugLog` (off unless
+  `__MIDI_ENGINEER_DEBUG__` / `MIDI_ENGINEER_DEBUG` is set) and `debugWarn`.
+- `shadowQuantizer.ts` exposes `SHADOW_TUNING` and `SHADOW_PENALTIES` constant
+  objects documenting the Pass 1 gates and Pass 2 objective weights.
+- Drum generation is split across `drumKit.ts` (GM map, shared types/helpers),
+  `beatDetection.ts` (beat profile + timpani pitch detection) and
+  `drumPatterns.ts` (the three pattern generators); `drumGenerator.ts` is a thin
+  orchestrator re-exporting the public API.
+
+> Note: a stale duplicate of the analysis module exists at the repository root
+> (`midiAnalysis.ts`); the live one is `components/services/midiAnalysis.ts`.
+> The root copy is imported by nothing and is a candidate for removal.
+
+## 4c) Voice separation code status
+
+`components/services/midiVoices.ts` `distributeToVoices` is a density/sustain
+heuristic, not the constraint-based, continuity-tracking solver described in
+`PROJECT_INTENT` §4. It slices the timeline by note on/off events, derives a
+voice count from the deepest density sustained for >= 1 measure, assigns anchor
+notes top-down by pitch within those dense slices, then greedily fills the
+remaining notes by a simple cost (pitch interval to neighbours + a register-zone
+bias + island/wake-up penalties). A note that collides with every voice becomes
+an orphan. It does not track per-line identity across the piece and has no
+explicit voice-crossing constraint.
+
+## 5) Known gaps vs target architecture (PROJECT_INTENT)
+
+- **Voice separation (§4):** the implementation is the density/sustain heuristic
+  in §4c, not the constraint-based, continuity-tracking solver the spec
+  describes.
+- **Ornaments (§3):** `detectAndTagOrnaments` tags notes (consumed by Piano Roll
+  display and analysis), but the tags are not read by quantization or ABC
+  rendering, so detected ornaments do not yet influence exported output.
+- **Shadow-quantization candidates (§2):** Pass 1 generates a single
+  onset/duration candidate per family at that family's minimum note value, so
+  Pass 2 reselects only between the primary and secondary MNV grids; coarser
+  in-family note values are not offered as separate candidates.
